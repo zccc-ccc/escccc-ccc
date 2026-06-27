@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>🏡 像素小屋</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
@@ -398,6 +398,57 @@
         .modal-content::-webkit-scrollbar { width:4px; }
         .modal-content::-webkit-scrollbar-track { background:#e8d5c0; border-radius:10px; }
         .modal-content::-webkit-scrollbar-thumb { background:#d4b8a0; border-radius:10px; }
+
+        /* ===== 移动端触摸操作 ===== */
+        .touch-controls { display:none; }
+        body.touch-mode .touch-controls { display:block; }
+        body.touch-mode { overflow-y:auto; align-items:flex-start; padding-top:8px; }
+        body.touch-mode .interact-hint { bottom:185px; }
+        .touch-dpad {
+            position:fixed; left:14px; bottom:18px; z-index:40;
+            display:grid;
+            grid-template-columns:repeat(3,48px);
+            grid-template-rows:repeat(3,48px);
+            gap:5px;
+            touch-action:none;
+            opacity:0.9;
+        }
+        .touch-dpad.hidden, .touch-action-btn.hidden { display:none; }
+        .dpad-btn {
+            background:rgba(250,242,232,0.92);
+            border:3px solid #d4b8a0;
+            border-radius:12px;
+            color:#7a5a40;
+            font-size:20px;
+            display:flex; align-items:center; justify-content:center;
+            cursor:pointer;
+            box-shadow:0 3px 10px rgba(120,80,50,0.2);
+            -webkit-tap-highlight-color:transparent;
+            font-family:inherit;
+            padding:0;
+        }
+        .dpad-btn.pressed { background:#f5c060; border-color:#e0a840; color:#5a3a1a; transform:scale(0.94); }
+        .dpad-up { grid-column:2; grid-row:1; }
+        .dpad-left { grid-column:1; grid-row:2; }
+        .dpad-right { grid-column:3; grid-row:2; }
+        .dpad-down { grid-column:2; grid-row:3; }
+        .touch-action-btn {
+            position:fixed; right:22px; bottom:34px; z-index:40;
+            width:84px; height:84px; border-radius:50%;
+            background:rgba(245,192,96,0.95);
+            border:4px solid #e0a840;
+            color:#5a3a1a;
+            font-size:14px; font-weight:bold;
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            cursor:pointer;
+            box-shadow:0 4px 16px rgba(200,140,60,0.4);
+            -webkit-tap-highlight-color:transparent;
+            font-family:inherit;
+            letter-spacing:1px;
+            touch-action:none;
+        }
+        .touch-action-btn:active { transform:scale(0.92); background:#f5d080; }
+        .touch-action-btn .ico { font-size:24px; line-height:1; margin-bottom:2px; }
     </style>
 </head>
 <body>
@@ -434,6 +485,16 @@
             <textarea id="exportLayoutBox" class="edit-export-box" readonly placeholder="点击「导出布局」后，这里会显示布局数据，已自动复制到剪贴板"></textarea>
         </div>
         <canvas id="gameCanvas" width="960" height="720"></canvas>
+        <!-- ===== 移动端触摸操作按钮 ===== -->
+        <div class="touch-controls" id="touchControls">
+            <div class="touch-dpad" id="touchDpad">
+                <button class="dpad-btn dpad-up" data-key="ArrowUp">▲</button>
+                <button class="dpad-btn dpad-left" data-key="ArrowLeft">◀</button>
+                <button class="dpad-btn dpad-right" data-key="ArrowRight">▶</button>
+                <button class="dpad-btn dpad-down" data-key="ArrowDown">▼</button>
+            </div>
+            <button class="touch-action-btn" id="touchActionBtn"><span class="ico">👆</span>互动</button>
+        </div>
         <!-- ===== 模态框 ===== -->
         <!-- 睡觉 -->
         <div class="modal-overlay" id="sleepModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('sleepModal')">✕</button><h2>💤 睡 觉 中 ...</h2><div class="action-scene" id="sleepScene"><div class="scene-image-container"></div><div class="scene-content"><div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:160px;height:40px;background:#6a5a4a;border-radius:20px 20px 10px 10px;border-bottom:8px solid #5a4a3a;"></div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:50px;height:30px;background:#f5d0b8;border-radius:20px 20px 10px 10px;z-index:2;"></div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:150px;height:30px;background:#8aa8b8;border-radius:20px 20px 10px 10px;z-index:3;animation:blanketMove 2s infinite alternate;"></div><div style="position:absolute;top:10px;right:20px;font-size:20px;color:rgba(255,255,255,0.6);animation:zzzFloat 1.5s infinite;">💤</div></div></div><div class="progress-bar"><div class="bar-bg"><div class="bar-fill" id="sleepFill" style="width:0%;background:linear-gradient(90deg,#f5c060,#f5e080);"></div></div><div class="label" id="sleepLabel">0%</div></div><p style="text-align:center;color:#7a5a40;font-size:11px;">恢复精力 +20</p><div class="flex-center"><button class="btn-primary btn-red" onclick="cancelSleep()">取消</button></div></div></div>
@@ -751,7 +812,9 @@ function checkInteraction() {
             goto_shop:'⬇️ 下楼', goto_house:'⬆️ 上楼',
             goto_garden:'⬆️ 去花园', pick:'🧺 采摘',
         };
-        interactHint.textContent = `按 [E] ${labels[nearInteract.interact] || '交互'}`;
+        interactHint.textContent = document.body.classList.contains('touch-mode')
+            ? `点击「互动」 ${labels[nearInteract.interact] || '交互'}`
+            : `按 [E] ${labels[nearInteract.interact] || '交互'}`;
     } else {
         interactHint.style.display = 'none';
     }
@@ -2245,8 +2308,17 @@ function renderMinesweeper() {
             else if (mineGrid[i][j]>0) cell.textContent=mineGrid[i][j];
         } else if (mineFlagged[i][j]) { cell.classList.add('flagged'); cell.textContent='🚩'; }
         cell.dataset.r=i; cell.dataset.c=j;
-        cell.onclick=()=>{ if (mineGameOver) return; if (mineFirstClick) { placeMines(i,j); mineFirstClick=false; } if (mineFlagged[i][j]) return; revealMine(i,j); };
+        cell.onclick=()=>{ if (cell._lpFlagged) { cell._lpFlagged=false; return; } if (mineGameOver) return; if (mineFirstClick) { placeMines(i,j); mineFirstClick=false; } if (mineFlagged[i][j]) return; revealMine(i,j); };
         cell.oncontextmenu=(e)=>{ e.preventDefault(); if (mineGameOver||mineRevealed[i][j]) return; mineFlagged[i][j]=!mineFlagged[i][j]; renderMinesweeper(); };
+        cell.addEventListener('touchstart',(e)=>{
+            cell._lpTimer=setTimeout(()=>{
+                cell._lpFlagged=true;
+                if (mineGameOver||mineRevealed[i][j]) return;
+                mineFlagged[i][j]=!mineFlagged[i][j]; renderMinesweeper();
+            },420);
+        },{passive:true});
+        cell.addEventListener('touchend',()=>{ clearTimeout(cell._lpTimer); },{passive:true});
+        cell.addEventListener('touchmove',()=>{ clearTimeout(cell._lpTimer); },{passive:true});
         container.appendChild(cell);
     }
 }
@@ -2752,6 +2824,93 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rotateSelected(90); }
     else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); flipSelected(); }
 });
+
+// ============================================================
+//  移动端触摸控制
+// ============================================================
+(function initTouchControls() {
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (!isTouch) return;
+    document.body.classList.add('touch-mode');
+
+    // ---- 方向键 D-pad ----
+    function setKey(btn, on) {
+        keys[btn.dataset.key] = on;
+        btn.classList.toggle('pressed', on);
+    }
+    document.querySelectorAll('.dpad-btn').forEach(btn => {
+        btn.addEventListener('touchstart', e => { e.preventDefault(); setKey(btn, true); }, { passive:false });
+        btn.addEventListener('touchend', e => { e.preventDefault(); setKey(btn, false); }, { passive:false });
+        btn.addEventListener('touchcancel', () => setKey(btn, false), { passive:true });
+    });
+
+    // ---- 互动按钮 ----
+    const actBtn = document.getElementById('touchActionBtn');
+    actBtn.addEventListener('touchstart', e => { e.preventDefault(); doInteract(); }, { passive:false });
+
+    // ---- 有弹窗时隐藏移动按钮 ----
+    const dpad = document.getElementById('touchDpad');
+    setInterval(() => {
+        const anyModal = !!document.querySelector('.modal-overlay.active');
+        dpad.classList.toggle('hidden', anyModal);
+        actBtn.classList.toggle('hidden', anyModal);
+    }, 150);
+
+    // ---- 小游戏滑动控制（2048 / 贪吃蛇 / 俄罗斯方块）----
+    const gpa = document.getElementById('gamePlayArea');
+    let sx = 0, sy = 0;
+    gpa.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive:true });
+    gpa.addEventListener('touchend', e => {
+        const gt = gpa.dataset.gameType;
+        if (!gt) return;
+        if (e.target.closest('button')) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - sx, dy = t.clientY - sy;
+        const adx = Math.abs(dx), ady = Math.abs(dy);
+        if (adx < 24 && ady < 24) {
+            if (gt === 'tetris') handleTetrisKey(' ');
+            return;
+        }
+        let key;
+        if (adx > ady) key = dx > 0 ? 'ArrowRight' : 'ArrowLeft';
+        else key = dy > 0 ? 'ArrowDown' : 'ArrowUp';
+        if (gt === '2048') handle2048Key(key);
+        else if (gt === 'snake') handleSnakeKey(key);
+        else if (gt === 'tetris') handleTetrisKey(key);
+    }, { passive:true });
+
+    // ---- 家具布置模式：触摸拖动家具 ----
+    function touchPos(t) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (t.clientX - rect.left) * (canvas.width / rect.width),
+            y: (t.clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+    canvas.addEventListener('touchstart', e => {
+        if (!editMode) return;
+        e.preventDefault();
+        const { x, y } = touchPos(e.touches[0]);
+        const f = furnitureAtPoint(x, y);
+        selectedFurniture = f;
+        updateEditSelectedName();
+        if (f) { draggingFurniture = f; dragOffsetX = x - f.x; dragOffsetY = y - f.y; }
+    }, { passive:false });
+    canvas.addEventListener('touchmove', e => {
+        if (!editMode || !draggingFurniture) return;
+        e.preventDefault();
+        const { x, y } = touchPos(e.touches[0]);
+        let nx = x - dragOffsetX, ny = y - dragOffsetY;
+        nx = Math.max(12, Math.min(W - draggingFurniture.w - 12, nx));
+        ny = Math.max(12, Math.min(H - draggingFurniture.h - 12, ny));
+        draggingFurniture.x = Math.round(nx);
+        draggingFurniture.y = Math.round(ny);
+    }, { passive:false });
+    canvas.addEventListener('touchend', () => {
+        if (draggingFurniture) saveLayout();
+        draggingFurniture = null;
+    }, { passive:true });
+})();
 
 init();
 </script>
