@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏡 像素小屋</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+        body {
+            background: #f5e8d8;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            min-height:100vh;
+            font-family:'Press Start 2P',monospace;
+            overflow:hidden;
+            padding:16px;
+        }
+        .game-wrapper {
+            background: #e8d5c0;
+            padding:28px;
+            border-radius:36px;
+            box-shadow:0 20px 60px rgba(120,80,50,0.25), inset 0 0 30px rgba(255,220,180,0.2);
+            border:4px solid #d4b8a0;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .game-container {
+            position:relative;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            background: #f5ede4;
+            border-radius:18px;
+            padding:12px;
+            border:3px solid #d4b8a0;
+            box-shadow:inset 0 0 40px rgba(200,170,140,0.15);
+        }
+        .status-bar {
+            position:absolute;
+            top:20px;
+            left:20px;
+            z-index:20;
+            background:rgba(250,242,232,0.92);
+            border:3px solid #d4b8a0;
+            border-radius:14px;
+            padding:14px 20px;
+            min-width:180px;
+            backdrop-filter:blur(4px);
+            box-shadow:0 6px 20px rgba(120,80,50,0.15);
+            font-size:12px;
+            pointer-events:none;
+        }
+        .status-bar .title { color:#7a5a40; font-size:14px; letter-spacing:2px; margin-bottom:8px; text-align:center; border-bottom:2px solid #e8d5c0; padding-bottom:8px; }
+        .status-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:12px; color:#5a3a2a; gap:8px; }
+        .status-item .label { color:#8a6a50; min-width:40px; font-size:11px; }
+        .status-item .value { font-weight:bold; min-width:28px; text-align:right; font-size:12px; }
+        .status-item .bar-bg { width:80px; height:10px; background:#e8d5c0; border-radius:5px; overflow:hidden; border:1px solid #c4a088; }
+        .status-item .bar-fill { height:100%; border-radius:5px; transition:width 0.25s ease; }
+        .bar-hunger .bar-fill { background:linear-gradient(90deg,#e8a060,#f5c080); }
+        .bar-energy .bar-fill { background:linear-gradient(90deg,#f5c060,#f5e080); }
+        .bar-happy .bar-fill { background:linear-gradient(90deg,#f5a0a0,#f5c0b0); }
+        .bar-clean .bar-fill { background:linear-gradient(90deg,#7ac0d0,#a0d8e8); }
+        .bar-points .bar-fill { background:linear-gradient(90deg,#e8b030,#f5d060); }
+        .status-item .icon { font-size:16px; margin-right:3px; }
+
+        #gameCanvas {
+            display:block;
+            background:#f5ede4;
+            border-radius:12px;
+            border:3px solid #d4b8a0;
+            image-rendering:pixelated;
+            cursor:default;
+            width:960px;
+            height:720px;
+            box-shadow:inset 0 0 30px rgba(200,170,140,0.1);
+        }
+        .interact-hint {
+            position:absolute;
+            bottom:30px;
+            left:50%;
+            transform:translateX(-50%);
+            z-index:20;
+            background:rgba(255,240,220,0.95);
+            border:4px solid #f5c060;
+            border-radius:16px;
+            padding:12px 32px;
+            color:#7a4a2a;
+            font-size:16px;
+            letter-spacing:2px;
+            text-align:center;
+            backdrop-filter:blur(4px);
+            display:none;
+            box-shadow:0 0 40px rgba(245,192,96,0.4), 0 4px 20px rgba(0,0,0,0.1);
+            animation: pulse-glow 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%,100% { box-shadow:0 0 30px rgba(245,192,96,0.3), 0 4px 20px rgba(0,0,0,0.1); border-color:#f5c060; }
+            50% { box-shadow:0 0 60px rgba(245,192,96,0.6), 0 4px 30px rgba(0,0,0,0.15); border-color:#f5d080; }
+        }
+        .floor-indicator {
+            position:absolute;
+            top:20px;
+            right:20px;
+            z-index:20;
+            background:rgba(250,242,232,0.92);
+            border:3px solid #d4b8a0;
+            border-radius:12px;
+            padding:10px 18px;
+            font-size:15px;
+            color:#7a5a40;
+            backdrop-filter:blur(4px);
+            box-shadow:0 6px 20px rgba(120,80,50,0.15);
+            pointer-events:none;
+            letter-spacing:1px;
+        }
+
+        .edit-toggle-btn {
+            position:absolute;
+            top:74px;
+            right:20px;
+            z-index:21;
+            background:rgba(250,242,232,0.95);
+            border:3px solid #d4b8a0;
+            border-radius:12px;
+            padding:8px 14px;
+            font-size:13px;
+            color:#7a5a40;
+            cursor:pointer;
+            backdrop-filter:blur(4px);
+            box-shadow:0 4px 14px rgba(120,80,50,0.15);
+            letter-spacing:1px;
+            transition:all 0.2s;
+            font-family:inherit;
+        }
+        .edit-toggle-btn:hover { background:#fff; transform:translateY(-1px); box-shadow:0 6px 18px rgba(120,80,50,0.22); }
+        .edit-toggle-btn.active { background:#f5c060; border-color:#e0a840; color:#5a3a1a; }
+
+        .edit-panel {
+            position:absolute;
+            top:120px;
+            right:20px;
+            z-index:25;
+            width:200px;
+            background:rgba(250,242,232,0.97);
+            border:3px solid #d4b8a0;
+            border-radius:14px;
+            padding:12px;
+            backdrop-filter:blur(6px);
+            box-shadow:0 8px 28px rgba(120,80,50,0.2);
+            display:none;
+            flex-direction:column;
+            gap:8px;
+        }
+        .edit-panel.active { display:flex; }
+        .edit-panel-title { font-size:13px; color:#7a4a2a; text-align:center; font-weight:bold; letter-spacing:1px; }
+        .edit-panel-tip { font-size:10px; color:#9a7a5a; text-align:center; line-height:1.5; }
+        .edit-selected { font-size:11px; color:#5a3a2a; text-align:center; background:#f0e4d4; border-radius:8px; padding:6px; border:1px dashed #d4b8a0; }
+        .edit-btn-row { display:flex; gap:6px; }
+        .edit-act-btn { flex:1; background:#f0e8e0; border:2px solid #d4b8a0; border-radius:8px; padding:7px 4px; font-size:11px; color:#5a3a2a; cursor:pointer; transition:all 0.15s; font-family:inherit; }
+        .edit-act-btn:hover { background:#f5c060; border-color:#e0a840; }
+        .edit-act-reset { background:#f5e0d8; border-color:#d8a890; }
+        .edit-act-done { background:#d8eed0; border-color:#a8d090; }
+        .edit-act-export { background:#dce8f5; border-color:#a8c0d8; }
+        .edit-export-box { width:100%; height:60px; resize:none; font-size:9px; border:2px solid #d4b8a0; border-radius:8px; padding:6px; color:#5a3a2a; background:#fdfaf5; font-family:monospace; box-sizing:border-box; display:none; }
+        .edit-export-box.show { display:block; }
+
+        .modal-overlay {
+            position:absolute;
+            top:0; left:0; right:0; bottom:0;
+            z-index:30;
+            background:rgba(80,50,30,0.55);
+            backdrop-filter:blur(6px);
+            display:none;
+            justify-content:center;
+            align-items:center;
+            border-radius:16px;
+            animation:fadeIn 0.3s ease;
+        }
+        .modal-overlay.active { display:flex; }
+        @keyframes fadeIn { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+        .modal-content {
+            background:#f5ede4;
+            border:4px solid #d4b8a0;
+            border-radius:20px;
+            padding:24px 28px;
+            max-width:620px;
+            width:92%;
+            max-height:82vh;
+            overflow-y:auto;
+            box-shadow:0 20px 60px rgba(60,30,10,0.4);
+            position:relative;
+        }
+        #shopModal .modal-content { background: #e8f4f8; border-color: #7ab0c8; }
+        #shopModal .modal-content h2 { color: #1a4a6a; border-bottom-color: #7ab0c8; }
+        #shopModal .modal-content p { color: #2a5a7a; }
+        #shopModal .modal-close { color: #4a8aaa; }
+        #shopModal .modal-close:hover { color: #1a4a6a; }
+        .modal-content h2 { color:#7a4a2a; font-size:18px; text-align:center; margin-bottom:14px; letter-spacing:2px; border-bottom:2px solid #e8d5c0; padding-bottom:10px; }
+        .modal-content p { color:#5a3a2a; font-size:13px; line-height:1.8; margin:6px 0; }
+        .modal-close { position:absolute; top:8px; right:16px; background:none; border:none; color:#c08060; font-size:22px; cursor:pointer; font-family:'Press Start 2P',monospace; transition:transform 0.2s; }
+        .modal-close:hover { transform:scale(1.2); color:#a06040; }
+        .btn-primary { background:#e8d5c0; border:3px solid #d4b8a0; color:#5a3a2a; padding:10px 20px; font-family:'Press Start 2P',monospace; font-size:12px; border-radius:12px; cursor:pointer; transition:all 0.2s; margin:4px 4px; box-shadow:0 2px 10px rgba(120,80,50,0.12); }
+        .btn-primary:hover { background:#f0e0d0; transform:scale(1.02); border-color:#c4a088; box-shadow:0 4px 20px rgba(120,80,50,0.18); }
+        .btn-primary:active { transform:scale(0.95); }
+        .btn-gold { background:#e8b030; border-color:#d4a020; color:#5a3a1a; }
+        .btn-gold:hover { background:#f5c040; border-color:#e8b030; }
+        .btn-green { background:#a0c080; border-color:#80a060; color:#3a4a2a; }
+        .btn-green:hover { background:#b0d090; border-color:#90b070; }
+        .btn-red { background:#d4a090; border-color:#b08070; color:#5a3a2a; }
+        .btn-red:hover { background:#e8b0a0; border-color:#c09080; }
+        .flex-center { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
+
+        .shop-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:14px 0; }
+        .shop-item { background:#e8f0f8; border:3px solid #7ab0c8; border-radius:16px; padding:14px 8px; text-align:center; color:#1a4a6a; box-shadow:0 2px 10px rgba(80,140,180,0.1); }
+        .shop-item .emoji { font-size:36px; display:block; margin-bottom:4px; }
+        .shop-item .name { font-size:11px; color:#1a4a6a; }
+        .shop-item .price { font-size:10px; color:#4a8aaa; }
+        .shop-item .stock { font-size:9px; color:#4a8aaa; }
+        .shop-item .buy-btn { margin-top:6px; padding:6px 14px; font-size:9px; background:#7ab0c8; border:2px solid #4a8aaa; border-radius:10px; cursor:pointer; color:#fff; font-family:'Press Start 2P',monospace; transition:all 0.2s; }
+        .shop-item .buy-btn:hover { background:#8ac0d8; transform:scale(1.05); }
+        .shop-item .buy-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+        .garden-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:14px 0; }
+        .garden-plot { aspect-ratio:1; background:#b0b898; border:3px solid #7a8a5a; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:32px; cursor:pointer; transition:all 0.2s; box-shadow:inset 0 0 20px rgba(0,0,0,0.08); min-height:80px; color:#5a3a2a; position:relative; }
+        .garden-plot .status { font-size:10px; background:rgba(0,0,0,0.5); color:#fff; padding:3px 8px; border-radius:6px; position:absolute; bottom:4px; font-family:'Press Start 2P',monospace; }
+        .garden-plot:hover { border-color:#f5d080; transform:scale(1.02); }
+        .seed-stock { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:10px 0; padding:10px; background:#f0e8e0; border-radius:12px; border:2px solid #d4b8a0; }
+        .seed-stock .item { background:#f5ede4; padding:6px 14px; border-radius:10px; border:1px solid #d4b8a0; font-size:10px; color:#5a3a2a; display:flex; align-items:center; gap:6px; }
+
+        .action-scene {
+            position:relative;
+            width:100%;
+            height:140px;
+            border-radius:18px;
+            margin:12px 0;
+            overflow:hidden;
+            border:3px solid #d4b8a0;
+            background:#e8d5c8;
+            background-image:linear-gradient(180deg,#8aaab8 0%,#e8d5c8 40%,#c4b0a0 100%);
+        }
+        .action-scene .scene-image-container {
+            position:absolute;
+            top:0; left:0; right:0; bottom:0;
+            z-index:0;
+            background-size:cover;
+            background-position:center;
+            background-repeat:no-repeat;
+        }
+        .action-scene .scene-content {
+            position:absolute;
+            top:0; left:0; right:0; bottom:0;
+            z-index:1;
+        }
+        .action-scene .person-icon { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); font-size:56px; line-height:1; }
+        .action-scene .prop { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); font-size:44px; }
+        .action-scene .bubble { position:absolute; top:12px; right:24px; font-size:28px; animation:floatUp 1.5s infinite; }
+        @keyframes floatUp { 0% { opacity:0; transform:translateY(0) scale(0.6); } 50% { opacity:1; transform:translateY(-20px) scale(1); } 100% { opacity:0; transform:translateY(-40px) scale(0.8); } }
+        .action-scene::after { content:''; position:absolute; inset:0; z-index:2; pointer-events:none; background:radial-gradient(circle at 50% 10%, rgba(255,255,255,0.35), transparent 65%); animation:scenePulse 1.6s ease-in-out infinite; }
+        @keyframes scenePulse { 0%,100% { opacity:0.25; } 50% { opacity:0.7; } }
+        .scene-sparkle { position:absolute; z-index:3; font-size:20px; pointer-events:none; animation:sparkleFloat 1.4s ease-in infinite; }
+        @keyframes sparkleFloat { 0% { opacity:0; transform:translateY(10px) scale(0.5) rotate(0deg); } 40% { opacity:1; } 100% { opacity:0; transform:translateY(-46px) scale(1.1) rotate(25deg); } }
+        .progress-bar { margin:10px 0; text-align:center; }
+        .progress-bar .bar-bg { width:100%; height:20px; background:#e8d5c0; border-radius:12px; overflow:hidden; border:2px solid #d4b8a0; position:relative; }
+        .progress-bar .bar-fill { height:100%; border-radius:12px; transition:width 0.2s; width:0%; position:relative; overflow:hidden; box-shadow:0 0 10px rgba(245,200,120,0.7); animation:barGlow 1s ease-in-out infinite; }
+        .progress-bar .bar-fill::after { content:''; position:absolute; top:0; left:0; bottom:0; width:100%; background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.65) 50%, transparent 100%); background-size:60px 100%; background-repeat:repeat-x; animation:barShine 0.9s linear infinite; }
+        @keyframes barShine { 0% { background-position:-60px 0; } 100% { background-position:240px 0; } }
+        @keyframes barGlow { 0%,100% { box-shadow:0 0 6px rgba(245,200,120,0.5); } 50% { box-shadow:0 0 16px rgba(245,200,120,0.95); } }
+        .progress-bar .label { color:#7a5a40; font-size:11px; margin-top:6px; font-weight:bold; }
+
+        .game-select-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:12px 0; }
+        .game-select-item { background:#f0e8e0; border:3px solid #d4b8a0; border-radius:16px; padding:16px 8px; text-align:center; cursor:pointer; transition:all 0.2s; color:#5a3a2a; box-shadow:0 2px 10px rgba(120,80,50,0.08); flex:0 0 calc(33.33% - 12px); min-width:100px; max-width:150px; }
+        .game-select-item:hover { border-color:#e8a060; background:#f0e0d0; transform:scale(1.04); }
+        .game-select-item .emoji { font-size:32px; display:block; margin-bottom:4px; }
+        .game-select-item .name { font-size:10px; color:#7a5a40; }
+
+        .game2048-container, .minesweeper-container, .snake-container, .tetris-container, .memory-container { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; gap:8px; }
+        .game2048-container .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; background:#d4b8a0; padding:8px; border-radius:14px; border:2px solid #b08870; width:280px; height:280px; margin:0 auto; }
+        .game2048-container .cell { background:#f5ede4; border-radius:6px; display:flex; justify-content:center; align-items:center; font-size:24px; font-weight:bold; color:#5a3a2a; transition:all 0.1s; font-family:'Press Start 2P',monospace; }
+        .game2048-container .cell[data-value="2"] { background:#f5e8d8; }
+        .game2048-container .cell[data-value="4"] { background:#f0dcc8; }
+        .game2048-container .cell[data-value="8"] { background:#e8c8a8; color:#3a2a1a; }
+        .game2048-container .cell[data-value="16"] { background:#e8b890; color:#3a2a1a; }
+        .game2048-container .cell[data-value="32"] { background:#e0a070; color:#fff; }
+        .game2048-container .cell[data-value="64"] { background:#d08850; color:#fff; }
+        .game2048-container .cell[data-value="128"] { background:#e8b030; color:#fff; }
+        .game2048-container .cell[data-value="256"] { background:#e8c030; color:#3a2a1a; }
+        .game2048-container .cell[data-value="512"] { background:#e8d030; color:#3a2a1a; }
+        .game2048-container .cell[data-value="1024"] { background:#f5e040; color:#3a2a1a; }
+        .game2048-container .cell[data-value="2048"] { background:#f5d000; color:#3a2a1a; }
+
+        .minesweeper-container .grid { display:grid; gap:2px; background:#d4b8a0; padding:4px; border-radius:10px; border:2px solid #b08870; margin:0 auto; width:fit-content; }
+        .minesweeper-container .cell { width:34px; height:34px; background:#f0e8e0; border-radius:4px; display:flex; justify-content:center; align-items:center; font-size:15px; font-weight:bold; color:#5a3a2a; cursor:pointer; font-family:'Press Start 2P',monospace; border:1px solid #d4b8a0; }
+        .minesweeper-container .cell.revealed { background:#f5ede4; border-color:#d4b8a0; }
+        .minesweeper-container .cell.mine { background:#e8a090; }
+        .minesweeper-container .cell.flagged { background:#f5d0b0; }
+
+        .snake-container .grid { display:grid; gap:1px; background:#d4b8a0; padding:4px; border-radius:10px; border:2px solid #b08870; margin:0 auto; width:fit-content; }
+        .snake-container .cell { width:24px; height:24px; background:#f5ede4; border-radius:2px; }
+        .snake-container .cell.snake { background:#8aba6a; border-radius:4px; }
+        .snake-container .cell.snake-head { background:#6a9a4a; border-radius:4px; }
+        .snake-container .cell.food { background:#e86040; border-radius:50%; }
+
+        .tetris-container .grid { display:grid; gap:1px; background:#d4b8a0; padding:4px; border-radius:10px; border:2px solid #b08870; margin:0 auto; width:fit-content; }
+        .tetris-container .cell { width:26px; height:26px; background:#f5ede4; border-radius:2px; }
+        .tetris-container .cell.filled { background:#6a8aba; border-radius:4px; }
+        .tetris-container .cell.filled-I { background:#5ac0d0; }
+        .tetris-container .cell.filled-O { background:#f5e060; }
+        .tetris-container .cell.filled-T { background:#c080d0; }
+        .tetris-container .cell.filled-S { background:#60c080; }
+        .tetris-container .cell.filled-Z { background:#e06060; }
+        .tetris-container .cell.filled-J { background:#6080d0; }
+        .tetris-container .cell.filled-L { background:#e0a060; }
+        .tetris-container .cell.ghost { opacity:0.25; }
+        .tetris-container .info { display:flex; justify-content:space-between; width:100%; max-width:280px; color:#7a5a40; font-size:11px; }
+
+        .memory-container .info { display:flex; justify-content:space-between; width:100%; max-width:340px; color:#7a5a40; font-size:11px; }
+        .memory-container .grid { display:grid; gap:6px; background:#d4b8a0; padding:8px; border-radius:14px; border:2px solid #b08870; margin:0 auto; grid-template-columns:repeat(4,1fr); width:320px; }
+        .memory-container .cell { aspect-ratio:1; background:#f0e8e0; border-radius:10px; display:flex; justify-content:center; align-items:center; font-size:34px; cursor:pointer; transition:all 0.25s; border:2px solid #d4b8a0; min-height:64px; }
+        .memory-container .cell.flipped { background:#f5ede4; border-color:#e8a060; transform:scale(0.96); }
+        .memory-container .cell.matched { background:#a0c080; border-color:#80a060; cursor:default; opacity:0.6; transform:scale(0.92); }
+        .memory-container .cell:not(.flipped):not(.matched):hover { border-color:#e8a060; transform:scale(1.04); }
+
+        .kitchen-stock { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:10px 0; padding:10px; background:#f0e8e0; border-radius:12px; border:2px solid #d4b8a0; }
+        .kitchen-stock .item { background:#f5ede4; padding:6px 14px; border-radius:10px; border:1px solid #d4b8a0; font-size:10px; color:#5a3a2a; display:flex; align-items:center; gap:6px; }
+        .kitchen-stock .item .emoji { font-size:16px; }
+        .kitchen-stock .item .count { font-weight:bold; color:#7a5a40; }
+        .ingredient-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:12px 0; }
+        .ingredient-item { background:#f0e8e0; border:3px solid #d4b8a0; border-radius:14px; padding:12px 6px; text-align:center; cursor:pointer; transition:all 0.2s; color:#5a3a2a; box-shadow:0 2px 10px rgba(120,80,50,0.08); }
+        .ingredient-item:hover { border-color:#e8a060; background:#f0e0d0; transform:scale(1.03); }
+        .ingredient-item.selected { border-color:#e8b030; background:#f5e0b0; box-shadow:0 0 20px rgba(232,176,48,0.25); }
+        .ingredient-item .emoji { font-size:32px; display:block; margin-bottom:2px; }
+        .ingredient-item .name { font-size:10px; color:#7a5a40; }
+        .ingredient-item .count { font-size:9px; color:#b08050; }
+        .ingredient-item.locked { opacity:0.4; cursor:not-allowed; filter:grayscale(0.5); }
+        .ingredient-item.locked:hover { transform:none; border-color:#d4b8a0; }
+        .recipe-result { text-align:center; padding:10px; border-radius:12px; background:#f0e8e0; border:2px dashed #d4b8a0; margin:10px 0; font-size:12px; color:#7a5a40; }
+
+        @media (max-width:1050px) {
+            #gameCanvas { width:100%; height:auto; aspect-ratio:960/720; }
+            .game-wrapper { padding:18px; }
+        }
+        @media (max-width:850px) {
+            .game-wrapper { padding:12px; }
+            .status-bar { top:10px; left:10px; padding:10px 14px; min-width:140px; font-size:10px; }
+            .status-bar .title { font-size:12px; }
+            .status-item { font-size:10px; padding:3px 0; }
+            .status-item .bar-bg { width:55px; height:8px; }
+            .status-item .label { font-size:9px; min-width:32px; }
+            .status-item .value { font-size:10px; min-width:22px; }
+            .status-item .icon { font-size:14px; }
+            .floor-indicator { font-size:13px; padding:8px 14px; top:10px; right:10px; }
+            .interact-hint { font-size:13px; padding:10px 24px; bottom:20px; }
+            .modal-content { padding:16px 18px; max-width:95vw; }
+            .modal-content h2 { font-size:15px; }
+            .modal-content p { font-size:11px; }
+            .btn-primary { font-size:10px; padding:8px 16px; }
+            .shop-grid { grid-template-columns:repeat(3,1fr); }
+            .ingredient-grid { grid-template-columns:repeat(3,1fr); }
+            .game2048-container .grid { width:220px; height:220px; }
+            .game2048-container .cell { font-size:20px; }
+            .minesweeper-container .cell { width:30px; height:30px; font-size:13px; }
+            .snake-container .cell { width:20px; height:20px; }
+            .tetris-container .cell { width:22px; height:22px; }
+            .memory-container .grid { width:260px; }
+            .memory-container .cell { font-size:28px; min-height:52px; }
+            .game-select-item { flex:0 0 calc(50% - 12px); max-width:180px; }
+        }
+        @media (max-width:500px) {
+            .status-bar { padding:8px 10px; min-width:100px; font-size:8px; }
+            .status-bar .title { font-size:10px; }
+            .status-item { font-size:8px; padding:2px 0; }
+            .status-item .bar-bg { width:35px; height:6px; }
+            .status-item .label { font-size:7px; min-width:24px; }
+            .status-item .value { font-size:8px; min-width:18px; }
+            .status-item .icon { font-size:11px; }
+            .floor-indicator { font-size:10px; padding:6px 10px; }
+            .interact-hint { font-size:10px; padding:8px 16px; bottom:14px; }
+            .modal-content h2 { font-size:13px; }
+            .modal-content p { font-size:10px; }
+            .btn-primary { font-size:8px; padding:6px 12px; }
+            .shop-grid { grid-template-columns:repeat(2,1fr); }
+            .ingredient-grid { grid-template-columns:repeat(2,1fr); }
+            .game-select-item { flex:0 0 calc(50% - 8px); min-width:70px; max-width:140px; }
+            .game2048-container .grid { width:160px; height:160px; }
+            .game2048-container .cell { font-size:16px; }
+            .minesweeper-container .cell { width:24px; height:24px; font-size:10px; }
+            .snake-container .cell { width:16px; height:16px; }
+            .tetris-container .cell { width:18px; height:18px; }
+            .memory-container .grid { width:190px; gap:4px; padding:6px; }
+            .memory-container .cell { font-size:22px; min-height:38px; }
+            .garden-grid { grid-template-columns:repeat(2,1fr); }
+            .action-scene { height:100px; }
+            .action-scene .person-icon { font-size:40px; }
+            .action-scene .prop { font-size:32px; }
+            .action-scene .bubble { font-size:20px; }
+        }
+        .modal-content::-webkit-scrollbar { width:4px; }
+        .modal-content::-webkit-scrollbar-track { background:#e8d5c0; border-radius:10px; }
+        .modal-content::-webkit-scrollbar-thumb { background:#d4b8a0; border-radius:10px; }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <div class="game-container" id="gameContainer">
+        <!-- 状态栏 -->
+        <div class="status-bar" id="statusBar">
+            <div class="title">✦ 状 态 ✦</div>
+            <div class="status-item bar-hunger"><span class="icon">🍖</span><span class="label">饥饿</span><div class="bar-bg"><div class="bar-fill" id="hungerFill" style="width:70%"></div></div><span class="value" id="hungerVal">70</span></div>
+            <div class="status-item bar-energy"><span class="icon">⚡</span><span class="label">精力</span><div class="bar-bg"><div class="bar-fill" id="energyFill" style="width:80%"></div></div><span class="value" id="energyVal">80</span></div>
+            <div class="status-item bar-happy"><span class="icon">😊</span><span class="label">快乐</span><div class="bar-bg"><div class="bar-fill" id="happyFill" style="width:70%"></div></div><span class="value" id="happyVal">70</span></div>
+            <div class="status-item bar-clean"><span class="icon">🧼</span><span class="label">干净</span><div class="bar-bg"><div class="bar-fill" id="cleanFill" style="width:80%"></div></div><span class="value" id="cleanVal">80</span></div>
+            <div class="status-item bar-points"><span class="icon">⭐</span><span class="label">积分</span><div class="bar-bg"><div class="bar-fill" id="pointsFill" style="width:0%"></div></div><span class="value" id="pointsVal">30</span></div>
+        </div>
+        <div class="floor-indicator" id="floorIndicator">🏠 中层小屋</div>
+        <div class="interact-hint" id="interactHint">按 [E] 键交互</div>
+        <button class="edit-toggle-btn" id="editToggleBtn" onclick="toggleEditMode()">🛠️ 布置家具</button>
+        <div class="edit-panel" id="editPanel">
+            <div class="edit-panel-title">🛠️ 家具布置模式</div>
+            <div class="edit-panel-tip">拖动家具移动位置 · 选中后可旋转/翻转</div>
+            <div class="edit-selected" id="editSelectedName">未选中家具</div>
+            <div class="edit-btn-row">
+                <button class="edit-act-btn" onclick="rotateSelected(-90)">↺ 左转</button>
+                <button class="edit-act-btn" onclick="rotateSelected(90)">↻ 右转</button>
+                <button class="edit-act-btn" onclick="flipSelected()">🔄 翻转</button>
+            </div>
+            <div class="edit-btn-row">
+                <button class="edit-act-btn edit-act-reset" onclick="resetLayout()">♻️ 恢复默认</button>
+                <button class="edit-act-btn edit-act-done" onclick="toggleEditMode()">✅ 完成</button>
+            </div>
+            <div class="edit-btn-row">
+                <button class="edit-act-btn edit-act-export" onclick="exportLayout()">📋 导出布局</button>
+            </div>
+            <textarea id="exportLayoutBox" class="edit-export-box" readonly placeholder="点击「导出布局」后，这里会显示布局数据，已自动复制到剪贴板"></textarea>
+        </div>
+        <canvas id="gameCanvas" width="960" height="720"></canvas>
+        <!-- ===== 模态框 ===== -->
+        <!-- 睡觉 -->
+        <div class="modal-overlay" id="sleepModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('sleepModal')">✕</button><h2>💤 睡 觉 中 ...</h2><div class="action-scene" id="sleepScene"><div class="scene-image-container"></div><div class="scene-content"><div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:160px;height:40px;background:#6a5a4a;border-radius:20px 20px 10px 10px;border-bottom:8px solid #5a4a3a;"></div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:50px;height:30px;background:#f5d0b8;border-radius:20px 20px 10px 10px;z-index:2;"></div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:150px;height:30px;background:#8aa8b8;border-radius:20px 20px 10px 10px;z-index:3;animation:blanketMove 2s infinite alternate;"></div><div style="position:absolute;top:10px;right:20px;font-size:20px;color:rgba(255,255,255,0.6);animation:zzzFloat 1.5s infinite;">💤</div></div></div><div class="progress-bar"><div class="bar-bg"><div class="bar-fill" id="sleepFill" style="width:0%;background:linear-gradient(90deg,#f5c060,#f5e080);"></div></div><div class="label" id="sleepLabel">0%</div></div><p style="text-align:center;color:#7a5a40;font-size:11px;">恢复精力 +20</p><div class="flex-center"><button class="btn-primary btn-red" onclick="cancelSleep()">取消</button></div></div></div>
+        <!-- 休息 -->
+        <div class="modal-overlay" id="restModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('restModal')">✕</button><h2>🛋️ 沙 发 休 息</h2><div class="action-scene" id="restScene"><div class="scene-image-container"></div><div class="scene-content"><div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:60px;">🛋️</div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:44px;">🧘</div><div style="position:absolute;top:10px;right:20px;font-size:18px;color:rgba(255,255,255,0.5);animation:floatUp 1.8s infinite;">☕</div></div></div><div class="progress-bar"><div class="bar-bg"><div class="bar-fill" id="restFill" style="width:0%;background:linear-gradient(90deg,#f5c060,#f5e080);"></div></div><div class="label" id="restLabel">0%</div></div><p style="text-align:center;color:#7a5a40;font-size:11px;">恢复精力 +10</p><div class="flex-center"><button class="btn-primary btn-red" onclick="cancelRest()">取消</button></div></div></div>
+        <!-- 洗澡 -->
+        <div class="modal-overlay" id="batheModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('batheModal')">✕</button><h2>🚿 洗 澡 中 ...</h2><div class="action-scene" id="batheScene"><div class="scene-image-container"></div><div class="scene-content"><div style="position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:40px;">🚿</div><div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:100px;height:40px;background:rgba(200,230,240,0.3);border-radius:20px;border:2px solid #8ab0c0;"></div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:44px;">🧑</div><div style="position:absolute;top:60px;left:20px;font-size:16px;color:rgba(255,255,255,0.5);">💧💧💧</div></div></div><div class="progress-bar"><div class="bar-bg"><div class="bar-fill" id="batheFill" style="width:0%;background:linear-gradient(90deg,#7ac0d0,#a0d8e8);"></div></div><div class="label" id="batheLabel">0%</div></div><p style="text-align:center;color:#7a5a40;font-size:11px;">恢复干净 +20</p><div class="flex-center"><button class="btn-primary btn-red" onclick="cancelBathe()">取消</button></div></div></div>
+        <!-- 洗衣服 -->
+        <div class="modal-overlay" id="washModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('washModal')">✕</button><h2>🧺 洗 衣 服</h2><div class="action-scene" id="washScene"><div class="scene-image-container"></div><div class="scene-content"><div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:50px;">🧺</div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:32px;">🔄</div><div style="position:absolute;top:10px;right:20px;font-size:18px;color:rgba(255,255,255,0.6);animation:floatUp 1.8s infinite;">💨</div></div></div><div class="progress-bar"><div class="bar-bg"><div class="bar-fill" id="washFill" style="width:0%;background:linear-gradient(90deg,#8ab0c0,#b0d0d8);"></div></div><div class="label" id="washLabel">0%</div></div><p style="text-align:center;color:#7a5a40;font-size:11px;">干净 +5，快乐 +3</p><div class="flex-center"><button class="btn-primary btn-red" onclick="cancelWash()">取消</button></div></div></div>
+        <!-- 学习 -->
+        <div class="modal-overlay" id="studyModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('studyModal')">✕</button><h2>📖 学 习 中 ...</h2><div class="action-scene" id="studyScene"><div class="scene-image-container"></div><div class="scene-content"><div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:50px;">📚</div><div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:44px;">🧑‍🎓</div><div style="position:absolute;top:10px;right:20px;font-size:18px;color:rgba(255,255,255,0.6);animation:floatUp 1.8s infinite;">💡</div></div></div><div class="progress-bar"><div class="bar-bg"><div class="bar-fill" id="studyFill" style="width:0%;background:linear-gradient(90deg,#f5c060,#f5e080);"></div></div><div class="label" id="studyLabel">0%</div></div><p style="text-align:center;color:#7a5a40;font-size:11px;">恢复快乐 +15</p><div class="flex-center"><button class="btn-primary btn-red" onclick="cancelStudy()">取消</button></div></div></div>
+        <!-- 电视 -->
+        <div class="modal-overlay" id="tvModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('tvModal')">✕</button><h2>📺 选 择 游 戏</h2><p style="text-align:center;color:#7a5a40;font-size:12px;">玩游戏获得积分和快乐值！</p><div class="game-select-grid" id="gameSelectGrid"><div class="game-select-item" onclick="startGame('2048')"><span class="emoji">🔢</span><span class="name">2048</span></div><div class="game-select-item" onclick="startGame('minesweeper')"><span class="emoji">💣</span><span class="name">扫雷</span></div><div class="game-select-item" onclick="startGame('snake')"><span class="emoji">🐍</span><span class="name">贪吃蛇</span></div><div class="game-select-item" onclick="startGame('tetris')"><span class="emoji">🧱</span><span class="name">俄罗斯方块</span></div><div class="game-select-item" onclick="startGame('memory')"><span class="emoji">🃏</span><span class="name">记忆翻牌</span></div></div><div id="gamePlayArea" style="display:none;margin-top:12px;"><div id="gameContent"></div><div class="flex-center" style="margin-top:12px;"><button class="btn-primary btn-red" onclick="closeGame()">关闭游戏</button><button class="btn-primary btn-gold" onclick="claimGameReward()">🎁 领取奖励</button></div></div><div class="flex-center" style="margin-top:8px;"><button class="btn-primary btn-red" onclick="closeModal('tvModal')">关闭电视</button></div></div></div>
+        <!-- 厨房 -->
+        <div class="modal-overlay" id="kitchenModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('kitchenModal')">✕</button><h2>🍳 厨 房 · 食 材 烹 饪</h2><div class="kitchen-stock" id="kitchenStockDisplay"></div><p style="text-align:center;color:#7a5a40;font-size:11px;">选择两种食材，匹配即可烹饪美食</p><div class="ingredient-grid" id="ingredientGrid"></div><div class="recipe-result" id="recipeResult">选择两种食材，查看能否烹饪</div><div class="flex-center"><button class="btn-primary btn-green" onclick="cookWithIngredients()">🔥 烹饪</button></div><div class="flex-center" style="margin-top:8px;"><button class="btn-primary btn-red" onclick="closeModal('kitchenModal')">关闭厨房</button></div></div></div>
+        <!-- 超市 -->
+        <div class="modal-overlay" id="shopModal"><div class="modal-content" style="background:#e8f4f8; border-color:#7ab0c8;"><button class="modal-close" onclick="closeModal('shopModal')" style="color:#4a8aaa;">✕</button><h2 style="color:#1a4a6a;">🛒 楼下超市</h2><div id="shopImage" style="width:100%; height:120px; margin:10px 0; border-radius:12px; background-size:cover; background-position:center; background-color:#c8e0f0; display:flex; align-items:center; justify-content:center;"><span style="font-size:48px;">🏪</span></div><p style="text-align:center;color:#2a5a7a;font-size:11px;">用积分购买种子或食材</p><div style="text-align:center;color:#1a4a6a;font-size:11px;margin-bottom:10px;">当前积分: <span id="shopPointsDisplay">30</span> ⭐</div><div class="shop-grid" id="shopGrid"></div><div class="flex-center" style="margin-top:10px;"><button class="btn-primary" style="background:#7ab0c8; border-color:#4a8aaa; color:#fff;" onclick="closeModal('shopModal')">离开超市</button></div></div></div>
+        <!-- 花园 -->
+        <div class="modal-overlay" id="gardenModal"><div class="modal-content"><button class="modal-close" onclick="closeModal('gardenModal')">✕</button><h2>🌱 顶 层 花 园</h2><div class="seed-stock" id="seedStockDisplay"></div><p style="text-align:center;color:#7a5a40;font-size:10px;">点击空地种植，作物成熟后点击收获</p><div class="garden-grid" id="gardenGrid"></div><div class="flex-center" style="margin-top:10px;"><button class="btn-primary btn-red" onclick="closeModal('gardenModal')">离开花园</button></div></div></div>
+        <!-- 消息 -->
+        <div class="modal-overlay" id="msgModal"><div class="modal-content" style="max-width:400px;"><button class="modal-close" onclick="closeModal('msgModal')">✕</button><h2 id="msgTitle">📢 消息</h2><p id="msgBody" style="text-align:center;font-size:13px;padding:10px 0;color:#5a3a2a;"></p><div class="flex-center"><button class="btn-primary" onclick="closeModal('msgModal')">知道了</button></div></div></div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+//  三层像素小镇 · 房间分色版（每个房间不同颜色）
+//  修改：所有种子价格统一为 5 积分，确保可售卖
+// ============================================================
+
+// ---------- DOM ----------
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = 960, H = 720;
+
+const hungerFill = document.getElementById('hungerFill');
+const hungerVal = document.getElementById('hungerVal');
+const energyFill = document.getElementById('energyFill');
+const energyVal = document.getElementById('energyVal');
+const happyFill = document.getElementById('happyFill');
+const happyVal = document.getElementById('happyVal');
+const cleanFill = document.getElementById('cleanFill');
+const cleanVal = document.getElementById('cleanVal');
+const pointsFill = document.getElementById('pointsFill');
+const pointsVal = document.getElementById('pointsVal');
+const interactHint = document.getElementById('interactHint');
+const floorIndicator = document.getElementById('floorIndicator');
+
+// ---------- 楼层 ----------
+const FLOORS = { SHOP:'shop', HOUSE:'house', GARDEN:'garden' };
+let currentFloor = FLOORS.HOUSE;
+
+// ---------- 状态 ----------
+const state = {
+    hunger:70, energy:80, happy:70, cleanliness:80, points:30,
+    maxHunger:100, maxEnergy:100, maxHappy:100, maxClean:100, maxPoints:1000,
+    hasDirtyClothes:false
+};
+
+// ---------- 食材 ----------
+const ingredients = {
+    meat: { name: '肉', emoji: '🥩', count: 2 },
+    vegetable: { name: '蔬菜', emoji: '🥬', count: 2 },
+    flour: { name: '面粉', emoji: '🌾', count: 2 },
+    egg: { name: '鸡蛋', emoji: '🥚', count: 2 },
+    cheese: { name: '奶酪', emoji: '🧀', count: 1 },
+    tomato: { name: '番茄', emoji: '🍅', count: 1 },
+    strawberry: { name: '草莓', emoji: '🍓', count: 0 },
+    blueberry: { name: '蓝莓', emoji: '🫐', count: 0 },
+    apple: { name: '苹果', emoji: '🍎', count: 0 },
+    banana: { name: '香蕉', emoji: '🍌', count: 0 },
+    orange: { name: '橙子', emoji: '🍊', count: 0 },
+};
+
+// ---------- ★★★ 种子定义：所有种子价格统一为 5 ★★★ ----------
+const seedTypes = [
+    { id: 'tomato_seed', name: '番茄种子', emoji: '🍅', cost: 5, growTime: 30, harvest: 'tomato' },
+    { id: 'carrot_seed', name: '胡萝卜种子', emoji: '🥕', cost: 5, growTime: 35, harvest: 'vegetable' },
+    { id: 'wheat_seed', name: '小麦种子', emoji: '🌾', cost: 5, growTime: 25, harvest: 'flour' },
+    { id: 'strawberry_seed', name: '草莓种子', emoji: '🍓', cost: 5, growTime: 30, harvest: 'strawberry' },
+    { id: 'apple_seed', name: '苹果种子', emoji: '🍎', cost: 5, growTime: 40, harvest: 'apple' },
+    { id: 'banana_seed', name: '香蕉种子', emoji: '🍌', cost: 5, growTime: 30, harvest: 'banana' },
+    { id: 'orange_seed', name: '橙子种子', emoji: '🍊', cost: 5, growTime: 35, harvest: 'orange' },
+];
+let seedInventory = {};
+seedTypes.forEach(s => seedInventory[s.id] = 2);
+
+// ---------- 花园 ----------
+let gardenPlots = [];
+for (let i=0; i<12; i++) gardenPlots.push({ seedId:null, stage:0, timer:0 });
+
+// ---------- 超市商品 ----------
+const shopItems = [
+    ...seedTypes.map(s => ({ ...s, type: 'seed' })),
+    { id: 'meat', name: '肉', emoji: '🥩', price: 15, type: 'ingredient', key: 'meat' },
+    { id: 'vegetable', name: '蔬菜', emoji: '🥬', price: 10, type: 'ingredient', key: 'vegetable' },
+    { id: 'flour', name: '面粉', emoji: '🌾', price: 8, type: 'ingredient', key: 'flour' },
+    { id: 'egg', name: '鸡蛋', emoji: '🥚', price: 10, type: 'ingredient', key: 'egg' },
+    { id: 'cheese', name: '奶酪', emoji: '🧀', price: 12, type: 'ingredient', key: 'cheese' },
+    { id: 'tomato', name: '番茄', emoji: '🍅', price: 8, type: 'ingredient', key: 'tomato' },
+    { id: 'strawberry', name: '草莓', emoji: '🍓', price: 12, type: 'ingredient', key: 'strawberry' },
+    { id: 'blueberry', name: '蓝莓', emoji: '🫐', price: 14, type: 'ingredient', key: 'blueberry' },
+    { id: 'apple', name: '苹果', emoji: '🍎', price: 12, type: 'ingredient', key: 'apple' },
+    { id: 'banana', name: '香蕉', emoji: '🍌', price: 10, type: 'ingredient', key: 'banana' },
+    { id: 'orange', name: '橙子', emoji: '🍊', price: 10, type: 'ingredient', key: 'orange' },
+];
+
+// ---------- 食谱 ----------
+const recipes = {
+    'meat+vegetable': { name: '炒菜', hunger: 20, happy: 5, emoji: '🥘' },
+    'flour+egg': { name: '蛋糕', hunger: 15, happy: 10, emoji: '🍰' },
+    'meat+flour': { name: '肉饼', hunger: 25, happy: 4, emoji: '🥩' },
+    'vegetable+cheese': { name: '蔬菜奶酪', hunger: 18, happy: 8, emoji: '🧀' },
+    'tomato+egg': { name: '番茄炒蛋', hunger: 22, happy: 6, emoji: '🍳' },
+    'flour+cheese': { name: '奶酪面包', hunger: 20, happy: 7, emoji: '🍞' },
+    'flour+tomato': { name: '番茄面饼', hunger: 18, happy: 4, emoji: '🍕' },
+    'flour+vegetable': { name: '蔬菜饼', hunger: 16, happy: 5, emoji: '🥬' },
+    'egg+vegetable': { name: '蔬菜蛋饼', hunger: 17, happy: 5, emoji: '🍳' },
+    'egg+cheese': { name: '奶酪蛋饼', hunger: 19, happy: 7, emoji: '🧀' },
+    'egg+meat': { name: '肉蛋卷', hunger: 22, happy: 5, emoji: '🥚' },
+    'tomato+cheese': { name: '芝士番茄', hunger: 16, happy: 6, emoji: '🧀' },
+    'tomato+meat': { name: '番茄肉酱', hunger: 24, happy: 5, emoji: '🍝' },
+    'tomato+vegetable': { name: '蔬菜番茄汤', hunger: 15, happy: 6, emoji: '🍲' },
+    'cheese+meat': { name: '芝士肉排', hunger: 26, happy: 6, emoji: '🧀' },
+    'strawberry+flour': { name: '草莓派', hunger: 18, happy: 12, emoji: '🥧' },
+    'blueberry+flour': { name: '蓝莓松饼', hunger: 17, happy: 11, emoji: '🥞' },
+    'apple+flour': { name: '苹果派', hunger: 18, happy: 12, emoji: '🥧' },
+    'banana+flour': { name: '香蕉面包', hunger: 16, happy: 10, emoji: '🍞' },
+    'orange+flour': { name: '橙味蛋糕', hunger: 15, happy: 10, emoji: '🍰' },
+    'strawberry+cheese': { name: '草莓奶酪', hunger: 16, happy: 10, emoji: '🧀' },
+    'blueberry+cheese': { name: '蓝莓奶酪', hunger: 15, happy: 10, emoji: '🧀' },
+    'apple+cheese': { name: '苹果奶酪', hunger: 16, happy: 9, emoji: '🧀' },
+    'banana+cheese': { name: '香蕉奶酪', hunger: 15, happy: 9, emoji: '🧀' },
+    'orange+cheese': { name: '橙香奶酪', hunger: 15, happy: 9, emoji: '🧀' },
+    'strawberry+egg': { name: '草莓蛋饼', hunger: 16, happy: 10, emoji: '🍳' },
+    'blueberry+egg': { name: '蓝莓蛋饼', hunger: 15, happy: 10, emoji: '🍳' },
+    'apple+egg': { name: '苹果蛋饼', hunger: 16, happy: 9, emoji: '🍳' },
+    'banana+egg': { name: '香蕉蛋饼', hunger: 15, happy: 9, emoji: '🍳' },
+    'orange+egg': { name: '橙香蛋饼', hunger: 15, happy: 9, emoji: '🍳' },
+    'strawberry+vegetable': { name: '草莓蔬菜沙拉', hunger: 14, happy: 8, emoji: '🥗' },
+    'blueberry+vegetable': { name: '蓝莓蔬菜沙拉', hunger: 14, happy: 8, emoji: '🥗' },
+    'apple+vegetable': { name: '苹果蔬菜沙拉', hunger: 15, happy: 8, emoji: '🥗' },
+    'banana+vegetable': { name: '香蕉蔬菜沙拉', hunger: 14, happy: 8, emoji: '🥗' },
+    'orange+vegetable': { name: '橙香蔬菜沙拉', hunger: 14, happy: 8, emoji: '🥗' },
+    'strawberry+tomato': { name: '草莓番茄汁', hunger: 12, happy: 8, emoji: '🍹' },
+    'blueberry+tomato': { name: '蓝莓番茄汁', hunger: 12, happy: 8, emoji: '🍹' },
+    'apple+tomato': { name: '苹果番茄汁', hunger: 12, happy: 7, emoji: '🍹' },
+    'banana+tomato': { name: '香蕉番茄奶昔', hunger: 13, happy: 8, emoji: '🥤' },
+    'orange+tomato': { name: '橙香番茄汁', hunger: 12, happy: 8, emoji: '🍹' },
+    'strawberry+meat': { name: '草莓烤肉', hunger: 22, happy: 8, emoji: '🍖' },
+    'blueberry+meat': { name: '蓝莓烤肉', hunger: 22, happy: 8, emoji: '🍖' },
+    'apple+meat': { name: '苹果烤猪肉', hunger: 24, happy: 7, emoji: '🍖' },
+    'banana+meat': { name: '香蕉烤肉', hunger: 21, happy: 7, emoji: '🍖' },
+    'orange+meat': { name: '橙香烤肉', hunger: 22, happy: 8, emoji: '🍖' },
+    'strawberry+blueberry': { name: '莓果拼盘', hunger: 12, happy: 12, emoji: '🍓' },
+    'strawberry+apple': { name: '草莓苹果', hunger: 12, happy: 11, emoji: '🍎' },
+    'strawberry+banana': { name: '草莓香蕉', hunger: 12, happy: 11, emoji: '🍌' },
+    'strawberry+orange': { name: '草莓橙子', hunger: 12, happy: 11, emoji: '🍊' },
+    'blueberry+apple': { name: '蓝莓苹果', hunger: 12, happy: 11, emoji: '🍎' },
+    'blueberry+banana': { name: '蓝莓香蕉', hunger: 12, happy: 11, emoji: '🍌' },
+    'blueberry+orange': { name: '蓝莓橙子', hunger: 12, happy: 11, emoji: '🍊' },
+    'apple+banana': { name: '苹果香蕉', hunger: 12, happy: 10, emoji: '🍎' },
+    'apple+orange': { name: '苹果橙子', hunger: 12, happy: 10, emoji: '🍊' },
+    'banana+orange': { name: '香蕉橙子', hunger: 12, happy: 10, emoji: '🍌' },
+};
+
+let selectedIngredients = [];
+
+// ---------- 玩家 ----------
+const player = { x:310, y:360, w:24, h:26, speed:3.0, dir:2, moving:false };
+const shopPlayer = { x:240, y:360, w:24, h:26, speed:3.0, dir:2, moving:false };
+const gardenPlayer = { x:240, y:360, w:24, h:26, speed:3.0, dir:2, moving:false };
+function getPlayer() {
+    if (currentFloor === FLOORS.SHOP) return shopPlayer;
+    if (currentFloor === FLOORS.GARDEN) return gardenPlayer;
+    return player;
+}
+
+// ---------- 小屋结构 ----------
+const houseRooms = {
+    living:{x:210,y:170,w:360,h:340},
+    bedroom:{x:600,y:170,w:300,h:340},
+    kitchen:{x:70,y:530,w:290,h:160},
+    bathroom:{x:380,y:530,w:220,h:160},
+    balcony:{x:640,y:20,w:220,h:120}
+};
+const doorways = [
+    {x:570,y:290,w:26,h:70},
+    {x:290,y:508,w:70,h:26},
+    {x:500,y:508,w:60,h:26},
+    {x:700,y:140,w:60,h:26}
+];
+
+// ---------- 家具自定义图片配置 ----------
+// 在这里设置你自己的家具图片，key为家具类型，value为图片路径
+// 如果不设置或图片加载失败，则使用默认的像素绘制
+const furnitureImages = {
+    tv:'tv.png',
+    bed:'bed.png',
+    bookshelf:'bookshelf.png',
+    cabinet:'cabinet.png',
+    clothesline:'clothesline.png',
+    counter:'counter.png',
+    fridge:'frideg.png',
+    sink:'sink.png',
+    shower:'shower.png',
+    stove:'stove.png',
+    washing_machine:'washing_machine.png',
+    shop_bg:'shop_bg.jpg',
+    garden_bg:'huayuan.png',
+};
+const loadedFurnitureImages = {};
+function preloadFurnitureImages() {
+    for (const [type, src] of Object.entries(furnitureImages)) {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => { loadedFurnitureImages[type] = img; console.log(`家具图片加载成功: ${type}`); };
+        img.onerror = () => { console.warn(`家具图片加载失败: ${type} -> ${src}`); };
+    }
+}
+
+// ---------- 交互场景图片配置 ----------
+// 在这里设置模态框场景的自定义图片
+const actionSceneImages = {
+    // sleep:'sleep_scene.png',
+    shop:'shop_bg.jpg',
+    // rest:'rest_scene.png',
+    // bathe:'bathe_scene.png',
+    // wash:'wash_scene.png',
+    // study:'study_scene.png',
+    // shop:'shop_scene.png',
+    // 取消注释并添加你的图片路径
+};
+const loadedActionSceneImages = {};
+function preloadActionSceneImages() {
+    for (const [modalId, src] of Object.entries(actionSceneImages)) {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => { loadedActionSceneImages[modalId] = img; console.log(`场景图片加载成功: ${modalId}`); };
+        img.onerror = () => { console.warn(`场景图片加载失败: ${modalId} -> ${src}`); };
+    }
+}
+
+// ---------- 小屋家具 ----------
+const houseFurniture = [
+    { id:'tv', x:258, y:208, w:240, h:156, type:'tv', label:'📺', room:'living', interact:'tv' },
+    { id:'sofa', x:326, y:371, w:100, h:40, type:'sofa', label:'🛋️', room:'living', interact:'rest', flip:true, rotation:180 },
+    { id:'plant', x:428, y:248, w:42, h:42, type:'plant', label:'🌿', room:'living', interact:null },
+    { id:'cabinet1', x:515, y:170, w:54, h:40, type:'cabinet', label:'🗄️', room:'living', interact:null },
+    { id:'bookshelf', x:741, y:147, w:174, h:120, type:'bookshelf', label:'📚', room:'living', interact:null },
+    { id:'painting', x:270, y:190, w:36, h:24, type:'painting', label:'🖼️', room:'living', interact:null },
+    { id:'bed', x:642, y:245, w:224, h:152, type:'bed', label:'🛏️', room:'bedroom', interact:'sleep' },
+    { id:'desk', x:725, y:396, w:66, h:38, type:'desk', label:'📚', room:'bedroom', interact:'study' },
+    { id:'cabinet2', x:601, y:169, w:44, h:56, type:'cabinet', label:'🗄️', room:'bedroom', interact:null },
+    { id:'lamp', x:799, y:278, w:24, h:36, type:'lamp', label:'💡', room:'bedroom', interact:null },
+    { id:'fridge', x:71, y:571, w:56, h:80, type:'fridge', label:'🧊', room:'kitchen', interact:null },
+    { id:'counter', x:159, y:588, w:94, h:50, type:'counter', label:'🍳', room:'kitchen', interact:null },
+    { id:'stove', x:280, y:590, w:66, h:52, type:'stove', label:'🔥', room:'kitchen', interact:'kitchen' },
+    { id:'toilet', x:386, y:588, w:40, h:40, type:'toilet', label:'🚽', room:'bathroom', interact:null },
+    { id:'sink', x:434, y:595, w:40, h:34, type:'sink', label:'🚰', room:'bathroom', interact:null },
+    { id:'shower', x:492, y:538, w:104, h:146, type:'shower', label:'🚿', room:'bathroom', interact:'bathe' },
+    { id:'washing_machine', x:670, y:50, w:144, h:100, type:'washing_machine', label:'🧺', room:'balcony', interact:'wash' },
+    { id:'clothesline', x:616, y:12, w:280, h:70, type:'clothesline', label:'👕', room:'balcony', interact:null },
+    { id:'downstairs', x:150, y:480, w:60, h:36, type:'stairs', label:'⬇️下楼', room:'living', interact:'goto_shop' },
+    { id:'upstairs', x:640, y:130, w:60, h:36, type:'stairs', label:'⬆️上楼', room:'balcony', interact:'goto_garden' },
+];
+
+// ---------- 超市与花园家具 ----------
+const shopFurniture = [
+    { id:'counter_shop', x:380, y:420, w:140, h:70, type:'counter_shop', label:'🛒 收银台', interact:'shop_buy' },
+    { id:'cashier', x:410, y:410, w:30, h:40, type:'cashier', label:'🧑‍💼', interact:null },
+    { id:'seed_stand', x:340, y:500, w:240, h:96, type:'seed_stand', label:'🌱 种子专区', interact:'shop_buy' },
+    { id:'shop_stairs', x:840, y:580, w:72, h:96, type:'stairs', label:'⬆️上楼', interact:'goto_house' },
+];
+const gardenFurniture = [
+    { id:'garden_stairs', x:840, y:580, w:72, h:96, type:'stairs', label:'⬇️下楼', interact:'goto_house' },
+    { id:'produce_tomato', x:110, y:150, w:60, h:60, type:'produce', emoji:'🍅', cropName:'番茄', cropKey:'tomato', ripe:true, label:'🍅', interact:'pick' },
+    { id:'produce_carrot', x:300, y:150, w:60, h:60, type:'produce', emoji:'🥕', cropName:'胡萝卜', cropKey:'vegetable', ripe:true, label:'🥕', interact:'pick' },
+    { id:'produce_strawberry', x:490, y:150, w:60, h:60, type:'produce', emoji:'🍓', cropName:'草莓', cropKey:'strawberry', ripe:true, label:'🍓', interact:'pick' },
+    { id:'produce_corn', x:680, y:150, w:60, h:60, type:'produce', emoji:'🌽', cropName:'玉米', cropKey:'vegetable', ripe:true, label:'🌽', interact:'pick' },
+    { id:'produce_apple', x:180, y:400, w:60, h:60, type:'produce', emoji:'🍎', cropName:'苹果', cropKey:'apple', ripe:true, label:'🍎', interact:'pick' },
+    { id:'produce_eggplant', x:400, y:400, w:60, h:60, type:'produce', emoji:'🍆', cropName:'茄子', cropKey:'vegetable', ripe:true, label:'🍆', interact:'pick' },
+    { id:'produce_blueberry', x:620, y:400, w:60, h:60, type:'produce', emoji:'🫐', cropName:'蓝莓', cropKey:'blueberry', ripe:true, label:'🫐', interact:'pick' },
+];
+
+function getCurrentFurniture() {
+    if (currentFloor === FLOORS.SHOP) return shopFurniture;
+    if (currentFloor === FLOORS.GARDEN) return gardenFurniture;
+    return houseFurniture;
+}
+
+// ---------- 交互 ----------
+let nearInteract = null;
+function checkInteraction() {
+    nearInteract = null;
+    if (editMode) return;
+    const p = getPlayer();
+    const furniture = getCurrentFurniture();
+    for (let f of furniture) {
+        if (!f.interact) continue;
+        if (f.type === 'produce' && !f.ripe) continue;
+        const cx = f.x + f.w/2, cy = f.y + f.h/2;
+        const px = p.x + p.w/2, py = p.y + p.h/2;
+        if (Math.hypot(px-cx, py-cy) < 60) {
+            nearInteract = f;
+            break;
+        }
+    }
+    if (nearInteract) {
+        interactHint.style.display = 'block';
+        const labels = {
+            tv:'📺 玩游戏', sleep:'🛏️ 睡觉', kitchen:'🍳 做饭',
+            bathe:'🚿 洗澡', rest:'🛋️ 休息', wash:'🧺 洗衣服',
+            study:'📖 学习', shop_buy:'🛒 购物',
+            goto_shop:'⬇️ 下楼', goto_house:'⬆️ 上楼',
+            goto_garden:'⬆️ 去花园', pick:'🧺 采摘',
+        };
+        interactHint.textContent = `按 [E] ${labels[nearInteract.interact] || '交互'}`;
+    } else {
+        interactHint.style.display = 'none';
+    }
+}
+
+function doInteract() {
+    if (!nearInteract) return;
+    const t = nearInteract.interact;
+    if (t === 'tv') openTV();
+    else if (t === 'sleep') startSleep();
+    else if (t === 'kitchen') openKitchen();
+    else if (t === 'bathe') startBathe();
+    else if (t === 'rest') startRest();
+    else if (t === 'wash') startWash();
+    else if (t === 'study') startStudy();
+    else if (t === 'goto_shop') switchFloor(FLOORS.SHOP);
+    else if (t === 'goto_house') switchFloor(FLOORS.HOUSE);
+    else if (t === 'goto_garden') switchFloor(FLOORS.GARDEN);
+    else if (t === 'shop_buy') openShop();
+    else if (t === 'pick') pickProduce(nearInteract);
+}
+
+function pickProduce(f) {
+    if (!f || !f.ripe) return;
+    f.ripe = false;
+    if (ingredients[f.cropKey]) {
+        ingredients[f.cropKey].count++;
+        showMessage('🧺 采摘成功！', `你摘到了 ${f.emoji} ${f.cropName}！已放入厨房食材。`);
+    } else {
+        state.points += 5;
+        showMessage('🧺 采摘成功！', `你摘到了 ${f.emoji} ${f.cropName}，获得 5 积分！`);
+    }
+    updateStatusUI();
+    interactHint.style.display = 'none';
+    nearInteract = null;
+    setTimeout(() => { f.ripe = true; }, 15000);
+}
+
+// ---------- 楼层切换 ----------
+function switchFloor(floor) {
+    if (floor === currentFloor) return;
+    currentFloor = floor;
+    if (floor === FLOORS.SHOP) {
+        shopPlayer.x = 420; shopPlayer.y = 480; shopPlayer.dir = 2;
+        floorIndicator.textContent = '🛒 底层超市 (蓝白)';
+    } else if (floor === FLOORS.GARDEN) {
+        gardenPlayer.x = 420; gardenPlayer.y = 480; gardenPlayer.dir = 2;
+        floorIndicator.textContent = '🌱 顶层花园';
+    } else {
+        player.x = 300; player.y = 420; player.dir = 0;
+        floorIndicator.textContent = '🏠 中层小屋';
+    }
+    document.querySelectorAll('.modal-overlay.active').forEach(el => el.classList.remove('active'));
+    interactHint.style.display = 'none';
+    nearInteract = null;
+    showMessage('🏢 换层', floor === FLOORS.SHOP ? '你来到了楼下超市！' :
+               floor === FLOORS.GARDEN ? '你来到了顶层花园！' : '你回到了温暖的小屋！');
+}
+
+// ---------- 键盘 ----------
+const keys = {};
+document.addEventListener('keydown', (e) => {
+    const key = e.key;
+    keys[key] = true;
+    if (key === 'e' || key === 'E') { e.preventDefault(); doInteract(); }
+    const tvModal = document.getElementById('tvModal');
+    if (tvModal.classList.contains('active')) {
+        const gt = document.getElementById('gamePlayArea').dataset.gameType;
+        if (gt === '2048' && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key)) {
+            e.preventDefault(); handle2048Key(key);
+        }
+        if (gt === 'snake' && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key)) {
+            e.preventDefault(); handleSnakeKey(key);
+        }
+        if (gt === 'tetris' && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(key)) {
+            e.preventDefault(); handleTetrisKey(key);
+        }
+    }
+    if (key === ' ') {
+        const playingTetris = tvModal.classList.contains('active') &&
+            document.getElementById('gamePlayArea').dataset.gameType === 'tetris';
+        if (!playingTetris) { e.preventDefault(); confirmActiveModal(); }
+    }
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(key)) e.preventDefault();
+});
+document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+// ---------- 玩家移动 ----------
+function movePlayer() {
+    if (editMode) return;
+    const p = getPlayer();
+    let dx=0, dy=0;
+    if (keys['ArrowUp']||keys['w']||keys['W']) dy = -p.speed;
+    if (keys['ArrowDown']||keys['s']||keys['S']) dy = p.speed;
+    if (keys['ArrowLeft']||keys['a']||keys['A']) dx = -p.speed;
+    if (keys['ArrowRight']||keys['d']||keys['D']) dx = p.speed;
+    if (dx!==0 && dy!==0) { dx*=0.707; dy*=0.707; }
+    if (dx!==0 || dy!==0) { p.moving=true; if (Math.abs(dx)>Math.abs(dy)) p.dir=dx>0?1:3; else p.dir=dy>0?2:0; }
+    else p.moving=false;
+
+    const margin = 5;
+    const newX = p.x + dx, newY = p.y + dy;
+    const maxX = W - p.w - margin, maxY = H - p.h - margin;
+
+    function buildWalls() {
+        const walls = [];
+        walls.push({x:0,y:0,w:W,h:12}, {x:0,y:H-12,w:W,h:12}, {x:0,y:0,w:12,h:H}, {x:W-12,y:0,w:12,h:H});
+        if (currentFloor === FLOORS.HOUSE) {
+            const inner = [
+                {x:570,y:170,w:14,h:340},
+                {x:210,y:508,w:360,h:14},
+                {x:70,y:140,w:290,h:14},
+                {x:600,y:140,w:300,h:14},
+                {x:380,y:530,w:12,h:160}
+            ];
+            let allWalls = inner;
+            const result = [];
+            for (let w of allWalls) {
+                let rects = [w];
+                for (let door of doorways) {
+                    const newRects = [];
+                    for (let r of rects) {
+                        if (r.x < door.x+door.w && r.x+r.w > door.x &&
+                            r.y < door.y+door.h && r.y+r.h > door.y) {
+                            if (r.x < door.x) newRects.push({x:r.x, y:r.y, w:door.x-r.x, h:r.h});
+                            if (r.x+r.w > door.x+door.w) {
+                                const rx = door.x+door.w;
+                                newRects.push({x:rx, y:r.y, w:r.x+r.w-rx, h:r.h});
+                            }
+                            if (r.y < door.y) {
+                                newRects.push({x:Math.max(r.x,door.x), y:r.y, w:Math.min(r.x+r.w,door.x+door.w)-Math.max(r.x,door.x), h:door.y-r.y});
+                            }
+                            if (r.y+r.h > door.y+door.h) {
+                                const ry = door.y+door.h;
+                                newRects.push({x:Math.max(r.x,door.x), y:ry, w:Math.min(r.x+r.w,door.x+door.w)-Math.max(r.x,door.x), h:r.y+r.h-ry});
+                            }
+                        } else {
+                            newRects.push(r);
+                        }
+                    }
+                    rects = newRects;
+                }
+                result.push(...rects);
+            }
+            result.push(...walls);
+            return result.filter(r => r.w > 4 && r.h > 4);
+        } else {
+            return walls;
+        }
+    }
+
+    const walls = buildWalls();
+    function collides(px, py, pw, ph, rect) {
+        return px < rect.x+rect.w && px+pw > rect.x &&
+               py < rect.y+rect.h && py+ph > rect.y;
+    }
+
+    const testRect = {x: newX+margin, y: p.y+margin, w: p.w-margin*2, h: p.h-margin*2};
+    let canMoveX = true;
+    for (let w of walls) {
+        if (collides(testRect.x, testRect.y, testRect.w, testRect.h, w)) { canMoveX = false; break; }
+    }
+    const testRect2 = {x: p.x+margin, y: newY+margin, w: p.w-margin*2, h: p.h-margin*2};
+    let canMoveY = true;
+    for (let w of walls) {
+        if (collides(testRect2.x, testRect2.y, testRect2.w, testRect2.h, w)) { canMoveY = false; break; }
+    }
+    if (canMoveX) p.x = Math.max(margin, Math.min(maxX, newX));
+    if (canMoveY) p.y = Math.max(margin, Math.min(maxY, newY));
+    p.x = Math.max(margin, Math.min(maxX, p.x));
+    p.y = Math.max(margin, Math.min(maxY, p.y));
+}
+
+// ---------- 状态更新 ----------
+let stateTimer = 0;
+function updateState() {
+    stateTimer++;
+    if (stateTimer % 120 === 0) {
+        state.hunger = Math.max(0, state.hunger - 0.3);
+        state.energy = Math.max(0, state.energy - 0.15);
+        state.happy = Math.max(0, state.happy - 0.12);
+        state.cleanliness = Math.max(0, state.cleanliness - 0.18);
+        updateStatusUI();
+    }
+}
+
+function updateStatusUI() {
+    const h = Math.round(state.hunger), e = Math.round(state.energy),
+          ha = Math.round(state.happy), c = Math.round(state.cleanliness),
+          p = Math.round(state.points);
+    hungerFill.style.width = (state.hunger/state.maxHunger*100)+'%';
+    hungerVal.textContent = h;
+    energyFill.style.width = (state.energy/state.maxEnergy*100)+'%';
+    energyVal.textContent = e;
+    happyFill.style.width = (state.happy/state.maxHappy*100)+'%';
+    happyVal.textContent = ha;
+    cleanFill.style.width = (state.cleanliness/state.maxClean*100)+'%';
+    cleanVal.textContent = c;
+    pointsFill.style.width = Math.min(100, state.points/state.maxPoints*100)+'%';
+    pointsVal.textContent = p;
+}
+
+// ============================================================
+//  ★★★ 修改：每个房间不同颜色的地板绘制 ★★★
+// ============================================================
+
+/**
+ * 绘制带颜色的木纹地板
+ * @param {number} x, y, w, h - 房间位置和尺寸
+ * @param {string} baseColor - 主色调 (如 '#f0dcc8')
+ * @param {string} accentColor - 辅助色调 (如 '#e8d0b8')
+ */
+function drawColoredFloor(x, y, w, h, baseColor, accentColor) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(x, y, w, h);
+
+    const stripeHeight = 14;
+    const colors = [];
+    for (let i = 0; i < 4; i++) {
+        const t = i / 3;
+        const r = parseInt(baseColor.slice(1,3), 16) + (parseInt(accentColor.slice(1,3), 16) - parseInt(baseColor.slice(1,3), 16)) * t;
+        const g = parseInt(baseColor.slice(3,5), 16) + (parseInt(accentColor.slice(3,5), 16) - parseInt(baseColor.slice(3,5), 16)) * t;
+        const b = parseInt(baseColor.slice(5,7), 16) + (parseInt(accentColor.slice(5,7), 16) - parseInt(baseColor.slice(5,7), 16)) * t;
+        colors.push(`rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`);
+    }
+
+    for (let row = 0; row < Math.ceil(h / stripeHeight); row++) {
+        const yPos = y + row * stripeHeight;
+        ctx.fillStyle = colors[row % colors.length];
+        ctx.fillRect(x, yPos, w, stripeHeight);
+
+        ctx.strokeStyle = 'rgba(160,140,120,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, yPos + stripeHeight * 0.3);
+        ctx.lineTo(x + w, yPos + stripeHeight * 0.3);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, yPos + stripeHeight * 0.7);
+        ctx.lineTo(x + w, yPos + stripeHeight * 0.7);
+        ctx.stroke();
+
+        const knots = [[0.2,0.2],[0.5,0.5],[0.8,0.3],[0.3,0.7],[0.7,0.8]];
+        for (let k of knots) {
+            const nx = x + k[0] * w;
+            const ny = yPos + k[1] * stripeHeight;
+            ctx.fillStyle = 'rgba(140,120,100,0.08)';
+            ctx.beginPath();
+            ctx.arc(nx, ny, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+    grad.addColorStop(0, 'rgba(255,255,255,0.04)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.03)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+
+    ctx.restore();
+}
+
+function drawWoodFloor(x, y, w, h) {
+    drawColoredFloor(x, y, w, h, '#f0e8dc', '#e0d0c0');
+}
+
+function drawShopFloor(x, y, w, h) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.fillStyle = '#e8f4f8';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#c8dce4';
+    ctx.lineWidth = 1;
+    const step = 48;
+    for (let i = 0; i <= w; i += step) {
+        ctx.beginPath();
+        ctx.moveTo(x + i, y);
+        ctx.lineTo(x + i, y + h);
+        ctx.stroke();
+    }
+    for (let i = 0; i <= h; i += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, y + i);
+        ctx.lineTo(x + w, y + i);
+        ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(200,228,236,0.3)';
+    for (let row = 0; row < Math.ceil(h/step); row++) {
+        for (let col = 0; col < Math.ceil(w/step); col++) {
+            if ((row+col) % 2 === 0) {
+                ctx.fillRect(x + col*step, y + row*step, step, step);
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function drawGardenFloor(x, y, w, h) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.fillStyle = '#d0c8b8';
+    ctx.fillRect(x, y, w, h);
+    const brickW = 40, brickH = 30;
+    ctx.strokeStyle = '#b8b0a0';
+    ctx.lineWidth = 2;
+    for (let row = 0; row < Math.ceil(h/brickH)+1; row++) {
+        for (let col = 0; col < Math.ceil(w/brickW)+1; col++) {
+            const bx = x + col*brickW;
+            const by = y + row*brickH;
+            ctx.strokeRect(bx, by, brickW, brickH);
+            ctx.fillStyle = 'rgba(180,168,156,0.12)';
+            ctx.fillRect(bx+5, by+5, 8, 8);
+            ctx.fillRect(bx+brickW-12, by+brickH-12, 8, 8);
+        }
+    }
+    ctx.restore();
+}
+
+function getFloorDrawer() {
+    if (currentFloor === FLOORS.SHOP) return drawShopFloor;
+    if (currentFloor === FLOORS.GARDEN) return drawGardenFloor;
+    return drawWoodFloor;
+}
+
+// ---------- 绘制主场景 ----------
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+    if (currentFloor === FLOORS.HOUSE) drawHouse();
+    else if (currentFloor === FLOORS.SHOP) drawShop();
+    else drawGarden();
+    if (editMode) {
+        const list = getCurrentFurniture();
+        for (let f of list) {
+            ctx.strokeStyle = 'rgba(120,140,200,0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4,4]);
+            ctx.strokeRect(f.x, f.y, f.w, f.h);
+            ctx.setLineDash([]);
+        }
+        if (selectedFurniture) {
+            const f = selectedFurniture;
+            ctx.strokeStyle = 'rgba(80,150,90,0.95)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([7,5]);
+            ctx.strokeRect(f.x-4, f.y-4, f.w+8, f.h+8);
+            ctx.setLineDash([]);
+            const grad = ctx.createRadialGradient(f.x+f.w/2, f.y+f.h/2, 4, f.x+f.w/2, f.y+f.h/2, 70);
+            grad.addColorStop(0, 'rgba(120,200,130,0.18)');
+            grad.addColorStop(1, 'rgba(120,200,130,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(f.x-60, f.y-60, f.w+120, f.h+120);
+        }
+        return;
+    }
+    if (nearInteract) {
+        const f = nearInteract;
+        ctx.strokeStyle = 'rgba(245,192,96,0.7)';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([6,6]);
+        ctx.strokeRect(f.x-6, f.y-6, f.w+12, f.h+12);
+        ctx.setLineDash([]);
+        const grad = ctx.createRadialGradient(f.x+f.w/2, f.y+f.h/2, 4, f.x+f.w/2, f.y+f.h/2, 70);
+        grad.addColorStop(0, 'rgba(245,192,96,0.2)');
+        grad.addColorStop(1, 'rgba(245,192,96,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(f.x-60, f.y-60, f.w+120, f.h+120);
+    }
+}
+
+// ============================================================
+//  drawHouse 使用每个房间不同的颜色
+// ============================================================
+
+function drawHouse() {
+    const roomColorMap = {
+        living:   { floor: '#fadde6', border: '#e8b8c8', accent: '#f2ccd8' },
+        bedroom:  { floor: '#e8d8ee', border: '#c8b0d8', accent: '#dcc8e4' },
+        kitchen:  { floor: '#eef0d4', border: '#cdd0a8', accent: '#e2e6c4' },
+        bathroom: { floor: '#d6ebf6', border: '#aecce2', accent: '#c6e0f0' },
+        balcony:  { floor: '#dcefdc', border: '#b4d4b4', accent: '#cbe6cb' },
+    };
+
+    for (let key in houseRooms) {
+        const r = houseRooms[key];
+        const colors = roomColorMap[key] || roomColorMap.living;
+        drawColoredFloor(r.x, r.y, r.w, r.h, colors.floor, colors.accent);
+        ctx.strokeStyle = colors.border;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+    }
+
+    for (let d of doorways) {
+        ctx.fillStyle = '#c4a890';
+        ctx.shadowColor = 'rgba(120,80,50,0.12)';
+        ctx.shadowBlur = 6;
+        ctx.fillRect(d.x, d.y, d.w, d.h);
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#d4b8a0';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(d.x+2, d.y+2, d.w-4, d.h-4);
+        ctx.fillStyle = '#f5d080';
+        ctx.beginPath();
+        ctx.arc(d.x+d.w-8, d.y+d.h/2, 3, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    for (let f of houseFurniture) drawFurniture(f);
+    drawPlayerChar(getPlayer());
+}
+
+// ---------- 绘制超市（货架商品完整显示） ----------
+function drawShop() {
+    if (loadedFurnitureImages['shop_bg']) {
+        ctx.drawImage(loadedFurnitureImages['shop_bg'], 24, 24, 912, 672);
+    } else {
+        drawShopFloor(24,24,912,672);
+    }
+    ctx.strokeStyle = '#7ab0c8'; ctx.lineWidth = 3;
+    ctx.strokeRect(24,24,912,672);
+
+    ctx.fillStyle = '#b0a8a0';
+    ctx.shadowColor = 'rgba(80,80,80,0.1)';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(380, 420, 140, 70);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#7ab0c8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(380, 420, 140, 70);
+    ctx.fillStyle = '#1a4a6a';
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillText('🛒 收银台', 400, 460);
+    ctx.fillStyle = '#f5d0b8';
+    ctx.fillRect(410, 400, 30, 40);
+    ctx.fillStyle = '#5a3a2a';
+    ctx.fillRect(415, 390, 20, 14);
+    ctx.fillStyle = '#3a2a1a';
+    ctx.fillRect(418, 400, 4, 4);
+    ctx.fillRect(428, 400, 4, 4);
+    ctx.fillStyle = '#c08070';
+    ctx.fillRect(422, 410, 6, 2);
+    ctx.fillStyle = '#4a8aaa';
+    ctx.fillRect(412, 388, 26, 6);
+    ctx.fillRect(418, 384, 14, 6);
+    ctx.fillStyle = '#f5d0b8';
+    ctx.fillRect(408, 410, 6, 14);
+    ctx.fillRect(436, 410, 6, 14);
+
+    ctx.fillStyle = '#b0d8e8';
+    ctx.shadowColor = 'rgba(80,140,180,0.08)';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(340,500,240,96);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#4a8aaa';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(340,500,240,96);
+    ctx.fillStyle = '#1a4a6a';
+    ctx.font = '18px sans-serif';
+    ctx.fillText('🌱', 430, 560);
+    ctx.fillStyle = '#1a4a6a';
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillText('种子专区', 390, 585);
+    ctx.fillStyle = '#8aacb8';
+    ctx.shadowColor = 'rgba(80,140,180,0.08)';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(840,580,72,96);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#5a8a9a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(840,580,72,96);
+    ctx.fillStyle = '#6a9aaa';
+    for (let i=0; i<4; i++) { ctx.fillRect(852+i*14, 594+i*14, 12, 8); }
+    ctx.fillStyle = '#f5d080';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('⬆', 855, 650);
+    ctx.fillStyle = '#1a3a4a';
+    ctx.font = '8px "Press Start 2P", monospace';
+    ctx.fillText('上楼', 855, 670);
+    ctx.fillStyle = 'rgba(26,74,106,0.12)';
+    ctx.font = '16px "Press Start 2P", monospace';
+    ctx.fillText('🛒 蓝白超市', 50, 60);
+    for (let f of shopFurniture) drawFurniture(f);
+    drawPlayerChar(getPlayer());
+}
+
+// ---------- 绘制花园 ----------
+function drawGarden() {
+    if (loadedFurnitureImages['garden_bg']) {
+        ctx.drawImage(loadedFurnitureImages['garden_bg'], 24, 24, 912, 672);
+    } else {
+        drawGardenFloor(24,24,912,672);
+    }
+    ctx.strokeStyle = '#b0a890'; ctx.lineWidth = 3;
+    ctx.strokeRect(24,24,912,672);
+    for (let f of gardenFurniture) drawFurniture(f);
+    drawPlayerChar(getPlayer());
+}
+
+// ---------- 绘制家具 ----------
+function drawFurniture(f) {
+    const {x,y,w,h,type,flip,rotation} = f;
+    ctx.save();
+    ctx.translate(x + w/2, y + h/2);
+    if (rotation) ctx.rotate(rotation * Math.PI / 180);
+    if (flip) ctx.scale(-1, 1);
+    ctx.shadowColor = 'rgba(120,80,50,0.12)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    const lx = -w/2, ly = -h/2;
+    if (loadedFurnitureImages[type]) {
+        try {
+            ctx.drawImage(loadedFurnitureImages[type], lx, ly, w, h);
+        } catch(e) {
+            drawDefaultFurniture(type, lx, ly, w, h, f);
+        }
+        ctx.restore();
+        return;
+    }
+    drawDefaultFurniture(type, lx, ly, w, h, f);
+    ctx.restore();
+}
+
+function drawDefaultFurniture(type, x, y, w, h, f) {
+    ctx.shadowColor = 'rgba(120,80,50,0.12)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+
+    switch(type) {
+        case 'tv':
+            ctx.fillStyle = '#4a3a2a'; ctx.fillRect(x,y,w,h);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#6a5a4a'; ctx.fillRect(x+5, y+5, w-10, h-14);
+            ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x+10, y+8, w-20, h-24);
+            ctx.fillStyle = '#b0a090'; ctx.fillRect(x+18, y+12, w-36, h-36);
+            for (let i=0; i<7; i++) {
+                ctx.fillStyle = i%2===0?'rgba(200,180,160,0.4)':'rgba(160,140,120,0.3)';
+                ctx.fillRect(x+20+i*10, y+18, 5, 5);
+            }
+            break;
+        case 'sofa':
+            ctx.fillStyle = '#b09888'; ctx.fillRect(x, y+8, w, h-8);
+            ctx.fillStyle = '#c0a898'; ctx.fillRect(x+4, y+3, w-8, 10);
+            ctx.fillStyle = '#d0b8a8'; ctx.fillRect(x+3, y+12, 8, h-18);
+            ctx.fillRect(x+w-11, y+12, 8, h-18);
+            break;
+        case 'sofa_single':
+            ctx.fillStyle = '#b09888'; ctx.fillRect(x, y+8, w, h-8);
+            ctx.fillStyle = '#c0a898'; ctx.fillRect(x+4, y+3, w-8, 8);
+            ctx.fillStyle = '#d0b8a8'; ctx.fillRect(x+3, y+12, 6, h-16);
+            ctx.fillRect(x+w-9, y+12, 6, h-16);
+            break;
+        case 'plant':
+            ctx.fillStyle = '#6a8a5a'; ctx.fillRect(x+10, y+24, w-20, h-24);
+            ctx.fillStyle = '#7aaa6a';
+            ctx.beginPath(); ctx.arc(x+w/2, y+14, w/2-5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#9aca7a';
+            ctx.beginPath(); ctx.arc(x+10, y+8, 12, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+w-10, y+8, 12, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'cabinet':
+            ctx.fillStyle = '#7a6a4a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#9a8a6a'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#6a5a3a'; ctx.fillRect(x+5, y+h/2-3, w-10, 5);
+            ctx.fillStyle = '#c0a080';
+            ctx.fillRect(x+10, y+10, 10, 12);
+            ctx.fillRect(x+w-20, y+10, 10, 12);
+            break;
+        case 'bookshelf':
+            ctx.fillStyle = '#7a6a4a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#9a8a6a'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#6a5a3a';
+            ctx.fillRect(x+8, y+12, w-16, 5);
+            ctx.fillRect(x+8, y+24, w-16, 5);
+            ctx.fillStyle = '#c0a080';
+            for (let i=0; i<3; i++) {
+                ctx.fillRect(x+10+i*14, y+14, 8, 10);
+                ctx.fillRect(x+12+i*14, y+26, 5, 8);
+            }
+            break;
+        case 'painting':
+            ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#f0e8dc'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#c08060';
+            ctx.beginPath(); ctx.arc(x+w/2, y+h/2, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#60a060';
+            ctx.fillRect(x+8, y+10, 5, 5);
+            break;
+        case 'bed':
+            ctx.fillStyle = '#7a6a5a'; ctx.fillRect(x, y+12, w, h-12);
+            ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x+5, y+4, w-10, 16);
+            ctx.fillStyle = '#9a8a7a'; ctx.fillRect(x+8, y+6, w-16, 10);
+            ctx.fillStyle = '#aa9a8a';
+            ctx.fillRect(x+8, y+14, 18, 14);
+            ctx.fillRect(x+w-26, y+14, 18, 14);
+            break;
+        case 'desk':
+            ctx.fillStyle = '#7a6a4a'; ctx.fillRect(x, y+10, w, h-10);
+            ctx.fillStyle = '#8a7a5a'; ctx.fillRect(x+5, y+4, w-10, 10);
+            ctx.fillStyle = '#6a5a3a';
+            ctx.fillRect(x+4, y+18, 6, h-22);
+            ctx.fillRect(x+w-10, y+18, 6, h-22);
+            ctx.fillStyle = '#9a5a4a';
+            ctx.fillRect(x+16, y+12, 12, 14);
+            ctx.fillStyle = '#5a7a8a';
+            ctx.fillRect(x+34, y+14, 10, 12);
+            break;
+        case 'lamp':
+            ctx.fillStyle = '#b0a090'; ctx.fillRect(x+8, y+24, 8, h-24);
+            ctx.fillStyle = '#f5e080';
+            ctx.beginPath(); ctx.arc(x+w/2, y+10, 14, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#f5c040';
+            ctx.beginPath(); ctx.arc(x+w/2, y+10, 8, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'stove':
+            ctx.fillStyle = '#5a4a3a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#7a6a5a'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#8a3a2a';
+            ctx.beginPath(); ctx.arc(x+18, y+26, 12, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+w-18, y+26, 12, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#aa4a3a';
+            ctx.beginPath(); ctx.arc(x+18, y+26, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+w-18, y+26, 6, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'fridge':
+            ctx.fillStyle = '#b0c0c0'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#d0e0e0'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#8a9a9a';
+            ctx.fillRect(x+10, y+16, 10, 18);
+            ctx.fillRect(x+w-20, y+16, 10, 18);
+            ctx.fillStyle = '#6a7a7a';
+            ctx.fillRect(x+16, y+h-12, w-32, 6);
+            break;
+        case 'counter':
+            ctx.fillStyle = '#8a7a5a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#aa9a7a'; ctx.fillRect(x+4,y+4,w-8,12);
+            ctx.fillStyle = '#6a5a3a'; ctx.fillRect(x+8, y+20, w-16, 6);
+            break;
+        case 'counter_shop':
+            ctx.fillStyle = '#b0a8a0'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#c0b8b0'; ctx.fillRect(x+4,y+4,w-8,h-8);
+            ctx.strokeStyle = '#7ab0c8'; ctx.lineWidth = 2;
+            ctx.strokeRect(x,y,w,h);
+            break;
+        case 'toilet':
+            ctx.fillStyle = '#c0b0a0'; ctx.fillRect(x+8, y+14, w-16, h-14);
+            ctx.fillStyle = '#d0c0b0'; ctx.fillRect(x+4, y+10, w-8, 10);
+            ctx.fillStyle = '#b0a090'; ctx.fillRect(x+8, y+24, 10, 8);
+            break;
+        case 'sink':
+            ctx.fillStyle = '#b0b8b8'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#d0d8d8'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#8a9a9a';
+            ctx.beginPath(); ctx.arc(x+w/2, y+14, 10, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'shower':
+            ctx.fillStyle = '#7a9a9a'; ctx.fillRect(x+8, y, w-16, h);
+            ctx.fillStyle = '#9ababa'; ctx.fillRect(x+4, y+8, 6, h-16);
+            ctx.fillRect(x+w-10, y+8, 6, h-16);
+            ctx.fillStyle = '#c0d8d8'; ctx.fillRect(x+10, y+8, w-20, 10);
+            for (let i=0; i<6; i++) {
+                ctx.fillStyle = 'rgba(200,230,240,0.2)';
+                ctx.fillRect(x+12+i*6, y+24+i*5, 5, 12);
+            }
+            break;
+        case 'washing_machine':
+            ctx.fillStyle = '#b0b8c0'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#d0d8e0'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#8a9aaa';
+            ctx.beginPath(); ctx.arc(x+w/2, y+h/2, 14, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#6a7a8a';
+            ctx.beginPath(); ctx.arc(x+w/2, y+h/2, 8, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'clothesline':
+            ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#b0a090'; ctx.fillRect(x+4,y+4,w-8,h-8);
+            const cols = ['#e86040','#60a0d0','#f5c080','#80c080'];
+            for (let i=0; i<4; i++) {
+                ctx.fillStyle = cols[i%cols.length];
+                ctx.fillRect(x+10+i*18, y+12, 12, 20);
+                ctx.fillStyle = '#c0b0a0';
+                ctx.fillRect(x+13+i*18, y+10, 8, 6);
+            }
+            break;
+        case 'stairs':
+            ctx.fillStyle = '#7a6a5a'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#9a8a7a'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#6a5a4a';
+            for (let i=0; i<4; i++) {
+                ctx.fillRect(x+10+i*12, y+10+i*6, 10, 6);
+            }
+            ctx.fillStyle = '#f5d080';
+            ctx.font = '20px sans-serif';
+            ctx.fillText('⬇', x+w/2-10, y+h/2+8);
+            break;
+        case 'seed_stand':
+            ctx.fillStyle = '#b0d8e8'; ctx.fillRect(x,y,w,h);
+            ctx.strokeStyle = '#4a8aaa'; ctx.lineWidth = 3;
+            ctx.strokeRect(x,y,w,h);
+            ctx.fillStyle = '#1a4a6a';
+            ctx.font = '30px sans-serif';
+            ctx.fillText('🌱', x+w/2-16, y+h/2+10);
+            ctx.fillStyle = '#1a4a6a';
+            ctx.font = '10px "Press Start 2P", monospace';
+            ctx.fillText('种子专区', x+w/2-32, y+h-14);
+            break;
+        case 'flower_bed':
+            ctx.fillStyle = '#c0a080'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#e8d5c0'; ctx.fillRect(x+5,y+5,w-10,h-10);
+            ctx.fillStyle = '#f5a0a0';
+            ctx.beginPath(); ctx.arc(x+24, y+24, 12, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+w-24, y+24, 12, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#f5c080';
+            ctx.beginPath(); ctx.arc(x+w/2, y+36, 10, 0, Math.PI*2); ctx.fill();
+            break;
+        case 'watering_can':
+            ctx.fillStyle = '#8ab0c0'; ctx.fillRect(x,y,w,h);
+            ctx.fillStyle = '#6a8a9a'; ctx.fillRect(x+8,y+8,20,20);
+            ctx.fillStyle = '#4a6a7a';
+            ctx.fillRect(x+24, y+6, 8, 10);
+            break;
+        case 'produce':
+            ctx.shadowBlur = 0;
+            if (f && f.ripe) {
+                ctx.font = '44px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(f.emoji, x+w/2, y+h/2+16);
+                ctx.textAlign = 'left';
+            } else {
+                ctx.font = '26px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('🌱', x+w/2, y+h/2+10);
+                ctx.textAlign = 'left';
+            }
+            break;
+        default:
+            ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x,y,w,h);
+    }
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    if (type === 'stairs' && f) {
+        ctx.fillStyle = 'rgba(60,40,30,0.7)';
+        ctx.font = '11px "Press Start 2P", monospace';
+        ctx.fillText(f.label, x+4, y+h+18);
+    }
+}
+
+// ---------- 绘制小女孩 ----------
+function drawPlayerChar(p) {
+    const x = p.x, y = p.y, s = p.w;
+    ctx.save();
+    ctx.shadowColor = 'rgba(60,30,10,0.25)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 4;
+
+    ctx.fillStyle = '#f5a0b0';
+    ctx.fillRect(x+2, y+10, s-4, s-10);
+    ctx.fillStyle = '#f5d0b8';
+    ctx.fillRect(x+4, y+6, s-8, 10);
+    ctx.fillStyle = '#f5d0b8';
+    ctx.fillRect(x+4, y, s-8, s-10);
+    ctx.fillStyle = '#5a3a2a';
+    ctx.fillRect(x+2, y, s-4, 4);
+    ctx.fillRect(x+4, y-2, 4, 4);
+    ctx.fillRect(x+s-8, y-2, 4, 4);
+    ctx.fillStyle = '#f5a0a0';
+    ctx.fillRect(x+2, y-2, 4, 4);
+    ctx.fillRect(x+s-6, y-2, 4, 4);
+    ctx.fillStyle = '#3a2a1a';
+    const eo = p.dir === 0 ? [0,-2] : p.dir===1 ? [2,0] : p.dir===2 ? [0,2] : [-2,0];
+    ctx.fillRect(x+6+eo[0], y+4+eo[1], 4, 4);
+    ctx.fillRect(x+s-10+eo[0], y+4+eo[1], 4, 4);
+    ctx.fillStyle = '#c08070';
+    ctx.fillRect(x+8, y+10, 6, 2);
+
+    ctx.fillStyle = '#f5d0b8';
+    if (p.moving) {
+        const wave = Math.sin(Date.now()/180)*2.5;
+        if (p.dir===0 || p.dir===2) {
+            ctx.fillRect(x-2, y+10+wave, 4, 8);
+            ctx.fillRect(x+s-2, y+10-wave, 4, 8);
+        } else {
+            ctx.fillRect(x-2+(p.dir===1?2:-2), y+8+wave, 4, 8);
+            ctx.fillRect(x+s-2+(p.dir===1?2:-2), y+8-wave, 4, 8);
+        }
+    } else {
+        ctx.fillRect(x-2, y+10, 4, 8);
+        ctx.fillRect(x+s-2, y+10, 4, 8);
+    }
+    ctx.fillStyle = '#f5d0b8';
+    if (p.moving) {
+        const step = Math.sin(Date.now()/140)*2.5;
+        ctx.fillRect(x+4, y+s-4, 5, 4+step);
+        ctx.fillRect(x+s-9, y+s-4, 5, 4-step);
+    } else {
+        ctx.fillRect(x+4, y+s-4, 5, 4);
+        ctx.fillRect(x+s-9, y+s-4, 5, 4);
+    }
+    ctx.fillStyle = '#e86040';
+    if (p.moving) {
+        const step = Math.sin(Date.now()/140)*2.5;
+        ctx.fillRect(x+3, y+s-2+step, 7, 3);
+        ctx.fillRect(x+s-10, y+s-2-step, 7, 3);
+    } else {
+        ctx.fillRect(x+3, y+s-2, 7, 3);
+        ctx.fillRect(x+s-10, y+s-2, 7, 3);
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ============================================================
+//  交互功能（睡眠、休息、洗澡、洗衣、学习）
+// ============================================================
+function setSceneImage(modalId) {
+    const sceneId = modalId.replace('Modal', 'Scene');
+    const container = document.querySelector(`#${sceneId} .scene-image-container`);
+    const content = document.querySelector(`#${sceneId} .scene-content`);
+    if (loadedActionSceneImages[modalId.replace('Modal', '')]) {
+        if (container) {
+            container.style.backgroundImage = `url(${actionSceneImages[modalId.replace('Modal', '')]})`;
+            container.style.display = 'block';
+        }
+        if (content) {
+            content.style.display = 'none';
+        }
+    } else {
+        if (container) {
+            container.style.backgroundImage = '';
+            container.style.display = 'none';
+        }
+        if (content) {
+            content.style.display = 'block';
+        }
+    }
+    spawnSceneSparkles(modalId);
+}
+
+const sceneSparkles = {
+    sleep: ['💤','😴','⭐','🌙'],
+    rest: ['☕','😌','💛','✨'],
+    bathe: ['💧','🫧','🧼','✨'],
+    wash: ['🫧','💨','✨','💦'],
+    study: ['💡','✨','📖','⭐'],
+};
+function spawnSceneSparkles(modalId) {
+    const sceneId = modalId.replace('Modal', 'Scene');
+    const scene = document.getElementById(sceneId);
+    if (!scene) return;
+    scene.querySelectorAll('.scene-sparkle').forEach(el => el.remove());
+    const key = modalId.replace('Modal', '');
+    const emojis = sceneSparkles[key] || ['✨'];
+    for (let i = 0; i < 6; i++) {
+        const sp = document.createElement('span');
+        sp.className = 'scene-sparkle';
+        sp.textContent = emojis[i % emojis.length];
+        sp.style.left = (8 + Math.random() * 82) + '%';
+        sp.style.bottom = (Math.random() * 30) + '%';
+        sp.style.animationDelay = (Math.random() * 1.4) + 's';
+        sp.style.fontSize = (16 + Math.random() * 12) + 'px';
+        scene.appendChild(sp);
+    }
+}
+
+let sleepActive=false, sleepProgress=0, sleepInterval=null;
+function startSleep() {
+    if (state.energy >= state.maxEnergy) { showMessage('💤 精力已满','你已经精力充沛啦！'); return; }
+    sleepActive = true; sleepProgress = 0;
+    document.getElementById('sleepFill').style.width = '0%';
+    document.getElementById('sleepLabel').textContent = '0%';
+    setSceneImage('sleepModal');
+    document.getElementById('sleepModal').classList.add('active');
+    if (sleepInterval) clearInterval(sleepInterval);
+    sleepInterval = setInterval(() => {
+        sleepProgress += 2;
+        if (sleepProgress >= 100) {
+            sleepProgress = 100; clearInterval(sleepInterval); sleepInterval = null;
+            const gain = 20;
+            state.energy = Math.min(state.maxEnergy, state.energy + gain);
+            state.happy = Math.min(state.maxHappy, state.happy + 3);
+            updateStatusUI();
+            showMessage('💤 睡醒了！', `精力恢复了 ${gain} 点！`);
+            closeModal('sleepModal');
+            sleepActive = false;
+        }
+        document.getElementById('sleepFill').style.width = sleepProgress + '%';
+        document.getElementById('sleepLabel').textContent = Math.round(sleepProgress) + '%';
+    }, 100);
+}
+function cancelSleep() {
+    if (sleepInterval) { clearInterval(sleepInterval); sleepInterval = null; }
+    sleepActive = false;
+    closeModal('sleepModal');
+    showMessage('💤 起床了', '中断了睡眠，精力只恢复了一点点。');
+    state.energy = Math.min(state.maxEnergy, state.energy + 3);
+    updateStatusUI();
+}
+
+let restActive=false, restProgress=0, restInterval=null;
+function startRest() {
+    if (state.energy >= state.maxEnergy) { showMessage('🛋️ 精力充沛','你现在的精力很足。'); return; }
+    restActive = true; restProgress = 0;
+    document.getElementById('restFill').style.width = '0%';
+    document.getElementById('restLabel').textContent = '0%';
+    setSceneImage('restModal');
+    document.getElementById('restModal').classList.add('active');
+    if (restInterval) clearInterval(restInterval);
+    restInterval = setInterval(() => {
+        restProgress += 2;
+        if (restProgress >= 100) {
+            restProgress = 100; clearInterval(restInterval); restInterval = null;
+            const gain = 10;
+            state.energy = Math.min(state.maxEnergy, state.energy + gain);
+            state.happy = Math.min(state.maxHappy, state.happy + 2);
+            updateStatusUI();
+            showMessage('🛋️ 休息好了', `精力恢复了 ${gain} 点！`);
+            closeModal('restModal');
+            restActive = false;
+        }
+        document.getElementById('restFill').style.width = restProgress + '%';
+        document.getElementById('restLabel').textContent = Math.round(restProgress) + '%';
+    }, 100);
+}
+function cancelRest() {
+    if (restInterval) { clearInterval(restInterval); restInterval = null; }
+    restActive = false;
+    closeModal('restModal');
+    showMessage('🛋️ 中断休息', '只恢复了一点点精力。');
+    state.energy = Math.min(state.maxEnergy, state.energy + 2);
+    updateStatusUI();
+}
+
+let batheActive=false, batheProgress=0, batheInterval=null;
+function startBathe() {
+    if (state.hasDirtyClothes) { showMessage('🧺 衣服还没洗','先去阳台洗衣服吧！'); return; }
+    if (state.cleanliness >= state.maxClean) { showMessage('🧼 已经很干净','不需要再洗了。'); return; }
+    batheActive = true; batheProgress = 0;
+    document.getElementById('batheFill').style.width = '0%';
+    document.getElementById('batheLabel').textContent = '0%';
+    setSceneImage('batheModal');
+    document.getElementById('batheModal').classList.add('active');
+    if (batheInterval) clearInterval(batheInterval);
+    batheInterval = setInterval(() => {
+        batheProgress += 2;
+        if (batheProgress >= 100) {
+            batheProgress = 100; clearInterval(batheInterval); batheInterval = null;
+            const gain = 20;
+            state.cleanliness = Math.min(state.maxClean, state.cleanliness + gain);
+            state.happy = Math.min(state.maxHappy, state.happy + 2);
+            state.hasDirtyClothes = true;
+            updateStatusUI();
+            showMessage('🚿 洗白白！', `干净值恢复了 ${gain} 点！但衣服脏了。`);
+            closeModal('batheModal');
+            batheActive = false;
+        }
+        document.getElementById('batheFill').style.width = batheProgress + '%';
+        document.getElementById('batheLabel').textContent = Math.round(batheProgress) + '%';
+    }, 100);
+}
+function cancelBathe() {
+    if (batheInterval) { clearInterval(batheInterval); batheInterval = null; }
+    batheActive = false;
+    closeModal('batheModal');
+    showMessage('🚿 中断洗澡', '干净值只恢复了一点点。');
+    state.cleanliness = Math.min(state.maxClean, state.cleanliness + 3);
+    updateStatusUI();
+}
+
+let washActive=false, washProgress=0, washInterval=null;
+function startWash() {
+    if (!state.hasDirtyClothes) { showMessage('🧺 没有脏衣服','没有需要洗的衣服。'); return; }
+    washActive = true; washProgress = 0;
+    document.getElementById('washFill').style.width = '0%';
+    document.getElementById('washLabel').textContent = '0%';
+    setSceneImage('washModal');
+    document.getElementById('washModal').classList.add('active');
+    if (washInterval) clearInterval(washInterval);
+    washInterval = setInterval(() => {
+        washProgress += 2;
+        if (washProgress >= 100) {
+            washProgress = 100; clearInterval(washInterval); washInterval = null;
+            state.hasDirtyClothes = false;
+            state.cleanliness = Math.min(state.maxClean, state.cleanliness + 5);
+            state.happy = Math.min(state.maxHappy, state.happy + 3);
+            updateStatusUI();
+            showMessage('🧺 衣服洗好了！', '干净值 +5，快乐 +3！');
+            closeModal('washModal');
+            washActive = false;
+        }
+        document.getElementById('washFill').style.width = washProgress + '%';
+        document.getElementById('washLabel').textContent = Math.round(washProgress) + '%';
+    }, 100);
+}
+function cancelWash() {
+    if (washInterval) { clearInterval(washInterval); washInterval = null; }
+    washActive = false;
+    closeModal('washModal');
+    showMessage('🧺 中断洗衣', '衣服还是脏的。');
+}
+
+let studyActive=false, studyProgress=0, studyInterval=null;
+function startStudy() {
+    if (state.happy >= state.maxHappy) { showMessage('📖 心情很好','你已经很快乐了，不用学习。'); return; }
+    studyActive = true; studyProgress = 0;
+    document.getElementById('studyFill').style.width = '0%';
+    document.getElementById('studyLabel').textContent = '0%';
+    setSceneImage('studyModal');
+    document.getElementById('studyModal').classList.add('active');
+    if (studyInterval) clearInterval(studyInterval);
+    studyInterval = setInterval(() => {
+        studyProgress += 2;
+        if (studyProgress >= 100) {
+            studyProgress = 100; clearInterval(studyInterval); studyInterval = null;
+            const gain = 15;
+            state.happy = Math.min(state.maxHappy, state.happy + gain);
+            state.energy = Math.max(0, state.energy - 3);
+            updateStatusUI();
+            showMessage('📖 学习完毕！', `快乐恢复了 ${gain} 点！但有点费神。`);
+            closeModal('studyModal');
+            studyActive = false;
+        }
+        document.getElementById('studyFill').style.width = studyProgress + '%';
+        document.getElementById('studyLabel').textContent = Math.round(studyProgress) + '%';
+    }, 100);
+}
+function cancelStudy() {
+    if (studyInterval) { clearInterval(studyInterval); studyInterval = null; }
+    studyActive = false;
+    closeModal('studyModal');
+    showMessage('📖 中断学习', '只恢复了一点点快乐。');
+    state.happy = Math.min(state.maxHappy, state.happy + 3);
+    updateStatusUI();
+}
+
+// ============================================================
+//  厨房
+// ============================================================
+function openKitchen() {
+    if (currentFloor !== FLOORS.HOUSE) { showMessage('🏠 需要回家','厨房在楼上小屋！'); return; }
+    selectedIngredients = [];
+    renderIngredients();
+    renderKitchenStock();
+    document.getElementById('kitchenModal').classList.add('active');
+    document.getElementById('recipeResult').textContent = '选择两种食材，查看能否烹饪';
+}
+function renderKitchenStock() {
+    const container = document.getElementById('kitchenStockDisplay');
+    container.innerHTML = '';
+    for (let key in ingredients) {
+        const ing = ingredients[key];
+        const div = document.createElement('span');
+        div.className = 'item';
+        div.innerHTML = `<span class="emoji">${ing.emoji}</span><span class="count">x${ing.count}</span>`;
+        container.appendChild(div);
+    }
+}
+function renderIngredients() {
+    const grid = document.getElementById('ingredientGrid');
+    grid.innerHTML = '';
+    for (let key in ingredients) {
+        const ing = ingredients[key];
+        const div = document.createElement('div');
+        div.className = 'ingredient-item' + (ing.count<=0?' locked':'');
+        if (selectedIngredients.includes(key)) div.classList.add('selected');
+        div.innerHTML = `<span class="emoji">${ing.emoji}</span><span class="name">${ing.name}</span><span class="count">x${ing.count}</span>`;
+        div.onclick = () => selectIngredient(key);
+        grid.appendChild(div);
+    }
+}
+function selectIngredient(key) {
+    const ing = ingredients[key];
+    if (ing.count <= 0) return;
+    if (selectedIngredients.length >= 2 && !selectedIngredients.includes(key)) {
+        selectedIngredients.shift(); selectedIngredients.push(key);
+    } else if (selectedIngredients.includes(key)) {
+        selectedIngredients = selectedIngredients.filter(k => k !== key);
+    } else {
+        selectedIngredients.push(key);
+    }
+    renderIngredients();
+    updateRecipeResult();
+}
+function updateRecipeResult() {
+    const resultDiv = document.getElementById('recipeResult');
+    if (selectedIngredients.length !== 2) {
+        resultDiv.textContent = '请选择两种食材';
+        resultDiv.style.background = '#f0e8e0';
+        return;
+    }
+    const sorted = [...selectedIngredients].sort();
+    const key = sorted.join('+');
+    if (recipes[key]) {
+        const recipe = recipes[key];
+        resultDiv.innerHTML = `✅ 匹配！可制作 <strong>${recipe.emoji} ${recipe.name}</strong> (饥饿+${recipe.hunger}, 快乐+${recipe.happy})`;
+        resultDiv.style.background = '#d8e8d0';
+    } else {
+        resultDiv.textContent = '❌ 这两种食材不匹配，无法烹饪';
+        resultDiv.style.background = '#f0d8d0';
+    }
+}
+function cookWithIngredients() {
+    if (selectedIngredients.length !== 2) { showMessage('⚠️ 选择食材','请先选择两种食材！'); return; }
+    const sorted = [...selectedIngredients].sort();
+    const key = sorted.join('+');
+    if (!recipes[key]) { showMessage('❌ 不匹配','这两种食材无法搭配成菜肴。'); return; }
+    for (let k of selectedIngredients) {
+        if (ingredients[k].count <= 0) { showMessage('❌ 食材不足','请去超市购买或种植。'); return; }
+    }
+    for (let k of selectedIngredients) ingredients[k].count--;
+    const recipe = recipes[key];
+    state.hunger = Math.min(state.maxHunger, state.hunger + recipe.hunger);
+    state.happy = Math.min(state.maxHappy, state.happy + recipe.happy);
+    updateStatusUI();
+    showMessage('🍳 烹饪成功！', `你制作了 ${recipe.emoji} ${recipe.name}，饥饿 +${recipe.hunger}，快乐 +${recipe.happy}！`);
+    selectedIngredients = [];
+    renderIngredients();
+    renderKitchenStock();
+    document.getElementById('recipeResult').textContent = '选择两种食材，查看能否烹饪';
+    document.getElementById('recipeResult').style.background = '#f0e8e0';
+}
+
+// ============================================================
+//  超市
+// ============================================================
+function openShop() {
+    if (currentFloor !== FLOORS.SHOP) { showMessage('🛒 需要下楼','超市在楼下！'); return; }
+    renderShop();
+    if (loadedActionSceneImages['shop']) {
+        document.getElementById('shopImage').style.backgroundImage = `url(${actionSceneImages['shop']})`;
+    }
+    document.getElementById('shopModal').classList.add('active');
+    document.getElementById('shopPointsDisplay').textContent = state.points;
+}
+function renderShop() {
+    const grid = document.getElementById('shopGrid');
+    grid.innerHTML = '';
+    shopItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'shop-item';
+        const itemPrice = item.price ?? item.cost;
+        let canAfford = state.points >= itemPrice;
+        let stockText = '';
+        if (item.type === 'seed') {
+            stockText = `库存: ${seedInventory[item.id]||0}`;
+        } else {
+            const key = item.key;
+            stockText = `库存: ${ingredients[key].count}`;
+        }
+        div.innerHTML = `
+            <span class="emoji">${item.emoji}</span>
+            <span class="name">${item.name}</span>
+            <span class="price">⭐${itemPrice}</span>
+            <span class="stock">${stockText}</span>
+            <button class="buy-btn" ${canAfford ? '' : 'disabled'}>
+                ${canAfford ? '🛒 购买' : '❌ 积分不足'}
+            </button>
+        `;
+        const btn = div.querySelector('.buy-btn');
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            if (item.type === 'seed') {
+                buySeed(item.id);
+            } else {
+                buyIngredient(item.key);
+            }
+        };
+        grid.appendChild(div);
+    });
+}
+function buySeed(seedId) {
+    const seed = seedTypes.find(s => s.id === seedId);
+    if (!seed) return;
+    if (state.points < seed.cost) {
+        showMessage('❌ 积分不足', `购买 ${seed.name} 需要 ${seed.cost} 积分。`);
+        return;
+    }
+    state.points -= seed.cost;
+    seedInventory[seedId] = (seedInventory[seedId]||0) + 1;
+    updateStatusUI();
+    document.getElementById('shopPointsDisplay').textContent = state.points;
+    renderShop();
+    showMessage('🌱 购买成功！', `你购买了 ${seed.emoji} ${seed.name}，库存 +1。`);
+}
+function buyIngredient(key) {
+    if (!ingredients[key]) return;
+    const item = shopItems.find(i => i.key === key);
+    if (!item) return;
+    if (state.points < item.price) {
+        showMessage('❌ 积分不足', `购买 ${item.name} 需要 ${item.price} 积分。`);
+        return;
+    }
+    state.points -= item.price;
+    ingredients[key].count++;
+    updateStatusUI();
+    document.getElementById('shopPointsDisplay').textContent = state.points;
+    renderShop();
+    showMessage('🛒 购买成功！', `你购买了 ${item.emoji} ${item.name}，已放入厨房。`);
+}
+
+// ============================================================
+//  花园
+// ============================================================
+function openGarden() {
+    if (currentFloor !== FLOORS.GARDEN) { showMessage('🌱 需要上楼','花园在顶层！'); return; }
+    renderGarden();
+    document.getElementById('gardenModal').classList.add('active');
+}
+function renderGarden() {
+    const stockDiv = document.getElementById('seedStockDisplay');
+    stockDiv.innerHTML = '';
+    for (let id in seedInventory) {
+        const seed = seedTypes.find(s => s.id === id);
+        if (seed && seedInventory[id] > 0) {
+            const span = document.createElement('span');
+            span.className = 'item';
+            span.innerHTML = `<span class="emoji">${seed.emoji}</span><span class="count">x${seedInventory[id]}</span>`;
+            stockDiv.appendChild(span);
+        }
+    }
+    if (stockDiv.children.length === 0) {
+        stockDiv.innerHTML = '<span style="font-size:10px;color:#7a5a40;">没有种子，请去超市购买</span>';
+    }
+    const grid = document.getElementById('gardenGrid');
+    grid.innerHTML = '';
+    gardenPlots.forEach((plot, idx) => {
+        const div = document.createElement('div');
+        div.className = 'garden-plot';
+        const seed = plot.seedId ? seedTypes.find(s => s.id === plot.seedId) : null;
+        if (plot.seedId && seed) {
+            if (plot.stage === 3) {
+                div.innerHTML = `${seed.emoji}<span class="status">🌾成熟</span>`;
+            } else if (plot.stage === 2) {
+                div.innerHTML = `${seed.emoji}<span class="status">🌱生长</span>`;
+            } else if (plot.stage === 1) {
+                div.innerHTML = `🌱<span class="status">发芽</span>`;
+            }
+        } else {
+            div.innerHTML = `🌿<span class="status">空地</span>`;
+        }
+        div.onclick = (e) => {
+            e.stopPropagation();
+            interactPlot(idx);
+        };
+        grid.appendChild(div);
+    });
+}
+function interactPlot(idx) {
+    const plot = gardenPlots[idx];
+    if (plot.seedId && plot.stage === 3) {
+        const seed = seedTypes.find(s => s.id === plot.seedId);
+        if (seed) {
+            const harvestKey = seed.harvest;
+            if (ingredients[harvestKey]) {
+                ingredients[harvestKey].count++;
+                showMessage('🌾 收获成功！', `你收获了 ${seed.emoji} ${seed.name} 的果实！已放入厨房。`);
+            } else {
+                state.points += 5;
+                showMessage('🌾 收获成功！', `你收获了果实，获得 5 积分！`);
+            }
+            plot.seedId = null;
+            plot.stage = 0;
+            plot.timer = 0;
+            updateStatusUI();
+            renderGarden();
+        }
+        return;
+    }
+    if (plot.seedId) {
+        showMessage('⏳ 生长中', '作物还没成熟，请耐心等待。');
+        return;
+    }
+    const available = Object.keys(seedInventory).filter(id => seedInventory[id] > 0);
+    if (available.length === 0) {
+        showMessage('🌱 没有种子', '请去超市购买种子。');
+        return;
+    }
+    const seedId = available[0];
+    const seed = seedTypes.find(s => s.id === seedId);
+    if (!seed) return;
+    seedInventory[seedId]--;
+    plot.seedId = seedId;
+    plot.stage = 1;
+    plot.timer = 0;
+    renderGarden();
+    showMessage('🌱 种植成功！', `你种下了 ${seed.emoji} ${seed.name}，等待生长吧！`);
+    if (!window.gardenInterval) {
+        window.gardenInterval = setInterval(() => {
+            let anyGrowing = false;
+            for (let p of gardenPlots) {
+                if (p.seedId && p.stage < 3) {
+                    p.timer++;
+                    const seedData = seedTypes.find(s => s.id === p.seedId);
+                    if (seedData && p.timer >= seedData.growTime) {
+                        p.stage = 3;
+                        p.timer = 0;
+                    } else if (p.timer >= 10 && p.stage === 1) {
+                        p.stage = 2;
+                    }
+                    anyGrowing = true;
+                }
+            }
+            if (!anyGrowing) {
+                clearInterval(window.gardenInterval);
+                window.gardenInterval = null;
+            }
+            if (document.getElementById('gardenModal').classList.contains('active')) {
+                renderGarden();
+            }
+        }, 3000);
+    }
+}
+
+// ============================================================
+//  小游戏（完整实现）
+// ============================================================
+let gameScore = 0;
+let gameRewardClaimed = false;
+
+// ---------- 2048 ----------
+let g2048 = {grid:[], score:0, gameOver:false};
+function init2048() {
+    g2048.grid = Array.from({length:4}, ()=>Array(4).fill(0));
+    g2048.score = 0; g2048.gameOver = false;
+    addRandom2048(); addRandom2048(); render2048();
+}
+function addRandom2048() {
+    const empty = [];
+    for (let i=0;i<4;i++) for (let j=0;j<4;j++) if (g2048.grid[i][j]===0) empty.push([i,j]);
+    if (!empty.length) return;
+    const [r,c] = empty[Math.floor(Math.random()*empty.length)];
+    g2048.grid[r][c] = Math.random()<0.9 ? 2 : 4;
+}
+function render2048() {
+    const gridEl = document.getElementById('game2048Grid');
+    if (!gridEl) return;
+    gridEl.innerHTML = '';
+    for (let i=0;i<4;i++) {
+        for (let j=0;j<4;j++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            const val = g2048.grid[i][j];
+            cell.dataset.value = val;
+            cell.textContent = val || '';
+            gridEl.appendChild(cell);
+        }
+    }
+    const scoreEl = document.getElementById('gameScore');
+    if (scoreEl) scoreEl.textContent = g2048.score;
+}
+function handle2048Key(key) {
+    if (g2048.gameOver) return;
+    const dirMap = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
+    const dir = dirMap[key];
+    if (!dir) return;
+    const moved = move2048(dir);
+    if (moved) { addRandom2048(); render2048(); check2048Status(); }
+}
+function move2048(dir) {
+    const grid = g2048.grid;
+    let moved = false, totalScore = 0;
+    const size=4;
+    function slide(row) {
+        let arr = row.filter(v=>v!==0);
+        let newArr=[], score=0;
+        for (let i=0;i<arr.length;i++) {
+            if (i+1<arr.length && arr[i]===arr[i+1]) {
+                newArr.push(arr[i]*2); score+=arr[i]*2; i++;
+            } else newArr.push(arr[i]);
+        }
+        while (newArr.length<size) newArr.push(0);
+        return {arr:newArr, score};
+    }
+    if (dir==='left') {
+        for (let i=0;i<size;i++) {
+            const {arr,score}=slide(grid[i]);
+            if (arr.join(',')!==grid[i].join(',')) moved=true;
+            grid[i]=arr; totalScore+=score;
+        }
+    } else if (dir==='right') {
+        for (let i=0;i<size;i++) {
+            const {arr,score}=slide(grid[i].slice().reverse());
+            const newRow=arr.reverse();
+            if (newRow.join(',')!==grid[i].join(',')) moved=true;
+            grid[i]=newRow; totalScore+=score;
+        }
+    } else if (dir==='up') {
+        for (let j=0;j<size;j++) {
+            const col = [];
+            for (let i=0;i<size;i++) col.push(grid[i][j]);
+            const {arr,score}=slide(col);
+            for (let i=0;i<size;i++) {
+                if (grid[i][j]!==arr[i]) moved=true;
+                grid[i][j]=arr[i];
+            }
+            totalScore+=score;
+        }
+    } else if (dir==='down') {
+        for (let j=0;j<size;j++) {
+            const col = [];
+            for (let i=size-1;i>=0;i--) col.push(grid[i][j]);
+            const {arr,score}=slide(col);
+            const newCol=arr.reverse();
+            for (let i=0;i<size;i++) {
+                if (grid[i][j]!==newCol[i]) moved=true;
+                grid[i][j]=newCol[i];
+            }
+            totalScore+=score;
+        }
+    }
+    g2048.score += totalScore;
+    return moved;
+}
+function check2048Status() {
+    const grid = g2048.grid;
+    let hasEmpty = false;
+    for (let i=0;i<4;i++) for (let j=0;j<4;j++) {
+        if (grid[i][j]===2048) showMessage('🎉 2048!','你达到了2048！');
+        if (grid[i][j]===0) hasEmpty = true;
+    }
+    if (!hasEmpty) {
+        let canMove=false;
+        for (let i=0;i<4;i++) for (let j=0;j<4;j++) {
+            if (i<3 && grid[i][j]===grid[i+1][j]) canMove=true;
+            if (j<3 && grid[i][j]===grid[i][j+1]) canMove=true;
+        }
+        if (!canMove) { g2048.gameOver=true; showMessage('😵 游戏结束',`得分 ${g2048.score}`); }
+    }
+}
+
+// ---------- 扫雷 ----------
+let mineGrid=[], mineRevealed=[], mineFlagged=[], mineRows=9, mineCols=9, mineCount=10, mineGameOver=false, mineFirstClick=true;
+function initMinesweeper() {
+    mineRows=9; mineCols=9; mineCount=10; mineGameOver=false; mineFirstClick=true;
+    mineGrid=[]; mineRevealed=[]; mineFlagged=[];
+    for (let i=0;i<mineRows;i++) {
+        mineGrid[i]=[]; mineRevealed[i]=[]; mineFlagged[i]=[];
+        for (let j=0;j<mineCols;j++) { mineGrid[i][j]=0; mineRevealed[i][j]=false; mineFlagged[i][j]=false; }
+    }
+    renderMinesweeper();
+}
+function placeMines(excludeR, excludeC) {
+    let placed=0;
+    while (placed<mineCount) {
+        const r=Math.floor(Math.random()*mineRows), c=Math.floor(Math.random()*mineCols);
+        if (mineGrid[r][c]===0 && !(r===excludeR && c===excludeC)) { mineGrid[r][c]=-1; placed++; }
+    }
+    for (let i=0;i<mineRows;i++) for (let j=0;j<mineCols;j++) {
+        if (mineGrid[i][j]===-1) continue;
+        let count=0;
+        for (let di=-1;di<=1;di++) for (let dj=-1;dj<=1;dj++) {
+            const ni=i+di, nj=j+dj;
+            if (ni>=0 && ni<mineRows && nj>=0 && nj<mineCols && mineGrid[ni][nj]===-1) count++;
+        }
+        mineGrid[i][j]=count;
+    }
+}
+function revealMine(r,c) {
+    if (r<0||r>=mineRows||c<0||c>=mineCols||mineRevealed[r][c]||mineFlagged[r][c]) return;
+    mineRevealed[r][c]=true;
+    if (mineGrid[r][c]===-1) { mineGameOver=true; showMessage('💥 踩雷了！','游戏结束。'); renderMinesweeper(); return; }
+    if (mineGrid[r][c]===0) {
+        for (let di=-1;di<=1;di++) for (let dj=-1;dj<=1;dj++) revealMine(r+di, c+dj);
+    }
+    renderMinesweeper();
+    checkMineWin();
+}
+function checkMineWin() {
+    let revealed=0;
+    for (let i=0;i<mineRows;i++) for (let j=0;j<mineCols;j++) if (mineRevealed[i][j]) revealed++;
+    if (revealed === mineRows*mineCols - mineCount) { showMessage('🎉 扫雷成功！','你赢了！'); }
+}
+function renderMinesweeper() {
+    const container=document.getElementById('mineGridContainer');
+    if (!container) return;
+    container.style.gridTemplateColumns=`repeat(${mineCols},34px)`;
+    container.innerHTML='';
+    for (let i=0;i<mineRows;i++) for (let j=0;j<mineCols;j++) {
+        const cell=document.createElement('div');
+        cell.className='cell';
+        if (mineRevealed[i][j]) {
+            cell.classList.add('revealed');
+            if (mineGrid[i][j]===-1) { cell.classList.add('mine'); cell.textContent='💣'; }
+            else if (mineGrid[i][j]>0) cell.textContent=mineGrid[i][j];
+        } else if (mineFlagged[i][j]) { cell.classList.add('flagged'); cell.textContent='🚩'; }
+        cell.dataset.r=i; cell.dataset.c=j;
+        cell.onclick=()=>{ if (mineGameOver) return; if (mineFirstClick) { placeMines(i,j); mineFirstClick=false; } if (mineFlagged[i][j]) return; revealMine(i,j); };
+        cell.oncontextmenu=(e)=>{ e.preventDefault(); if (mineGameOver||mineRevealed[i][j]) return; mineFlagged[i][j]=!mineFlagged[i][j]; renderMinesweeper(); };
+        container.appendChild(cell);
+    }
+}
+
+// ---------- 贪吃蛇 ----------
+let snake=[], snakeDir={dx:1,dy:0}, snakeFood={x:5,y:5}, snakeGameOver=false, snakeGrid=20, snakeScore=0, snakeInterval=null;
+function initSnake() {
+    snakeGrid=20; snakeScore=0; snakeGameOver=false;
+    const mid=Math.floor(snakeGrid/2);
+    snake=[{x:mid,y:mid},{x:mid-1,y:mid},{x:mid-2,y:mid}];
+    snakeDir={dx:1,dy:0};
+    placeSnakeFood();
+    renderSnake();
+    if (snakeInterval) clearInterval(snakeInterval);
+    snakeInterval=setInterval(()=>{ if (!snakeGameOver && document.getElementById('tvModal').classList.contains('active')) updateSnake(); },150);
+}
+function placeSnakeFood() {
+    let pos; let attempts=0;
+    do { pos={x:Math.floor(Math.random()*snakeGrid), y:Math.floor(Math.random()*snakeGrid)}; attempts++; }
+    while ((snake.some(s=>s.x===pos.x&&s.y===pos.y) || (snakeFood.x===pos.x&&snakeFood.y===pos.y)) && attempts<100);
+    snakeFood=pos;
+}
+function updateSnake() {
+    if (snakeGameOver) return;
+    const head={x:snake[0].x+snakeDir.dx, y:snake[0].y+snakeDir.dy};
+    if (head.x<0||head.x>=snakeGrid||head.y<0||head.y>=snakeGrid) { snakeGameOver=true; showMessage('🐍 撞墙了','游戏结束'); renderSnake(); return; }
+    if (snake.some(s=>s.x===head.x&&s.y===head.y)) { snakeGameOver=true; showMessage('🐍 咬到自己了','游戏结束'); renderSnake(); return; }
+    snake.unshift(head);
+    if (head.x===snakeFood.x&&head.y===snakeFood.y) { snakeScore++; placeSnakeFood(); if (snakeScore%5===0) { if (snakeInterval) { clearInterval(snakeInterval); snakeInterval=setInterval(()=>{ if (!snakeGameOver) updateSnake(); }, Math.max(60,150-snakeScore*2)); } } }
+    else snake.pop();
+    renderSnake();
+    if (snake.length===snakeGrid*snakeGrid) { snakeGameOver=true; showMessage('🎉 贪吃蛇通关！','你赢了！'); }
+}
+function renderSnake() {
+    const container=document.getElementById('snakeGridContainer');
+    if (!container) return;
+    container.style.gridTemplateColumns=`repeat(${snakeGrid},24px)`;
+    container.innerHTML='';
+    for (let i=0;i<snakeGrid;i++) for (let j=0;j<snakeGrid;j++) {
+        const cell=document.createElement('div');
+        cell.className='cell';
+        const isSnake=snake.some(s=>s.x===j&&s.y===i);
+        const isHead=snake.length>0&&snake[0].x===j&&snake[0].y===i;
+        if (isSnake) cell.classList.add(isHead?'snake-head':'snake');
+        if (snakeFood.x===j&&snakeFood.y===i) cell.classList.add('food');
+        container.appendChild(cell);
+    }
+    document.getElementById('snakeScore').textContent=snakeScore;
+}
+function handleSnakeKey(key) {
+    if (snakeGameOver) return;
+    const dirMap={'ArrowUp':{dx:0,dy:-1},'ArrowDown':{dx:0,dy:1},'ArrowLeft':{dx:-1,dy:0},'ArrowRight':{dx:1,dy:0}};
+    const newDir=dirMap[key]; if (!newDir) return;
+    if (snakeDir.dx===-newDir.dx && snakeDir.dy===-newDir.dy) return;
+    snakeDir=newDir;
+}
+
+// ---------- 俄罗斯方块 ----------
+let tetrisBoard=[], tetrisPiece=null, tetrisScore=0, tetrisGameOver=false, tetrisInterval=null, tetrisDropInterval=500;
+const TETRIS_SHAPES = {
+    I:{shape:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],color:'I'},
+    O:{shape:[[1,1],[1,1]],color:'O'},
+    T:{shape:[[0,1,0],[1,1,1],[0,0,0]],color:'T'},
+    S:{shape:[[0,1,1],[1,1,0],[0,0,0]],color:'S'},
+    Z:{shape:[[1,1,0],[0,1,1],[0,0,0]],color:'Z'},
+    J:{shape:[[1,0,0],[1,1,1],[0,0,0]],color:'J'},
+    L:{shape:[[0,0,1],[1,1,1],[0,0,0]],color:'L'}
+};
+function initTetris() {
+    tetrisBoard=[]; for (let i=0;i<20;i++) tetrisBoard.push(new Array(10).fill(0));
+    tetrisScore=0; tetrisGameOver=false; tetrisDropInterval=500;
+    spawnTetrisPiece(); renderTetris();
+    if (tetrisInterval) clearInterval(tetrisInterval);
+    tetrisInterval=setInterval(()=>{ if (!tetrisGameOver && document.getElementById('tvModal').classList.contains('active')) tetrisDrop(); }, tetrisDropInterval);
+}
+function spawnTetrisPiece() {
+    const types=['I','O','T','S','Z','J','L'];
+    const type=types[Math.floor(Math.random()*types.length)];
+    const data=TETRIS_SHAPES[type];
+    const shape=data.shape.map(row=>[...row]);
+    tetrisPiece={shape, color:data.color, x:Math.floor((10-shape[0].length)/2), y:0};
+    if (tetrisCollides(tetrisPiece.shape, tetrisPiece.x, tetrisPiece.y)) { tetrisGameOver=true; showMessage('🧱 游戏结束',`得分 ${tetrisScore}`); if (tetrisInterval) clearInterval(tetrisInterval); }
+    renderTetris();
+}
+function tetrisCollides(shape, offX, offY) {
+    for (let r=0;r<shape.length;r++) for (let c=0;c<shape[r].length;c++) if (shape[r][c]) {
+        const x=offX+c, y=offY+r;
+        if (x<0||x>=10||y>=20||y<0) return true;
+        if (y>=0 && tetrisBoard[y][x]!==0) return true;
+    }
+    return false;
+}
+function tetrisMerge() {
+    const shape=tetrisPiece.shape, offX=tetrisPiece.x, offY=tetrisPiece.y;
+    for (let r=0;r<shape.length;r++) for (let c=0;c<shape[r].length;c++) if (shape[r][c]) {
+        const x=offX+c, y=offY+r;
+        if (y>=0&&y<20) tetrisBoard[y][x]=tetrisPiece.color;
+    }
+    let cleared=0;
+    for (let y=19;y>=0;y--) if (tetrisBoard[y].every(v=>v!==0)) { tetrisBoard.splice(y,1); tetrisBoard.unshift(new Array(10).fill(0)); cleared++; y++; }
+    if (cleared>0) { const pts=[0,10,30,60,100]; tetrisScore+=pts[Math.min(cleared,4)]; document.getElementById('tetrisScore').textContent=tetrisScore; }
+    spawnTetrisPiece(); renderTetris();
+}
+function tetrisDrop() { if (tetrisGameOver||!tetrisPiece) return; if (!tetrisCollides(tetrisPiece.shape, tetrisPiece.x, tetrisPiece.y+1)) { tetrisPiece.y++; renderTetris(); } else tetrisMerge(); }
+function tetrisMove(dx) { if (tetrisGameOver||!tetrisPiece) return; if (!tetrisCollides(tetrisPiece.shape, tetrisPiece.x+dx, tetrisPiece.y)) { tetrisPiece.x+=dx; renderTetris(); } }
+function tetrisRotate() { if (tetrisGameOver||!tetrisPiece) return; const shape=tetrisPiece.shape; const rotated=shape[0].map((_,idx)=>shape.map(row=>row[idx]).reverse()); if (!tetrisCollides(rotated, tetrisPiece.x, tetrisPiece.y)) { tetrisPiece.shape=rotated; renderTetris(); } else { if (!tetrisCollides(rotated, tetrisPiece.x+1, tetrisPiece.y)) { tetrisPiece.shape=rotated; tetrisPiece.x+=1; renderTetris(); } else if (!tetrisCollides(rotated, tetrisPiece.x-1, tetrisPiece.y)) { tetrisPiece.shape=rotated; tetrisPiece.x-=1; renderTetris(); } } }
+function tetrisHardDrop() { if (tetrisGameOver||!tetrisPiece) return; while (!tetrisCollides(tetrisPiece.shape, tetrisPiece.x, tetrisPiece.y+1)) tetrisPiece.y++; tetrisMerge(); renderTetris(); }
+function renderTetris() {
+    const container=document.getElementById('tetrisGrid');
+    if (!container) return;
+    container.style.gridTemplateColumns='repeat(10,26px)';
+    container.innerHTML='';
+    for (let r=0;r<20;r++) for (let c=0;c<10;c++) {
+        const cell=document.createElement('div');
+        cell.className='cell';
+        let val=tetrisBoard[r][c];
+        if (tetrisPiece&&!tetrisGameOver) {
+            const shape=tetrisPiece.shape, px=tetrisPiece.x, py=tetrisPiece.y;
+            if (r>=py&&r<py+shape.length&&c>=px&&c<px+shape[0].length) if (shape[r-py][c-px]) val=tetrisPiece.color;
+        }
+        if (val) cell.classList.add('filled', 'filled-'+val);
+        container.appendChild(cell);
+    }
+    document.getElementById('tetrisScore').textContent=tetrisScore;
+}
+function handleTetrisKey(key) {
+    if (tetrisGameOver) return;
+    if (key==='ArrowLeft') tetrisMove(-1);
+    else if (key==='ArrowRight') tetrisMove(1);
+    else if (key==='ArrowDown') tetrisDrop();
+    else if (key==='ArrowUp') tetrisRotate();
+    else if (key===' ') tetrisHardDrop();
+}
+
+// ---------- 记忆翻牌 ----------
+let memoryCards=[], memoryFlipped=[], memoryMatched=[], memoryLocked=false, memoryMoves=0, memoryPairs=8;
+const MEMORY_ICONS = ['🍎','🍌','🍇','🍊','🍓','🍉','🍒','🍑'];
+function initMemory() {
+    memoryPairs=8; memoryMoves=0; memoryLocked=false;
+    const icons=[...MEMORY_ICONS.slice(0,memoryPairs),...MEMORY_ICONS.slice(0,memoryPairs)];
+    for (let i=icons.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [icons[i],icons[j]]=[icons[j],icons[i]]; }
+    memoryCards=icons.map((icon,idx)=>({id:idx,icon,matched:false,flipped:false}));
+    memoryFlipped=[]; memoryMatched=[]; renderMemory();
+}
+function renderMemory() {
+    const container=document.getElementById('memoryGrid');
+    if (!container) return;
+    container.innerHTML='';
+    memoryCards.forEach((card,idx)=>{
+        const cell=document.createElement('div');
+        cell.className='cell';
+        if (card.matched) { cell.classList.add('matched'); cell.textContent=card.icon; }
+        else if (card.flipped) { cell.classList.add('flipped'); cell.textContent=card.icon; }
+        else cell.textContent='❓';
+        cell.dataset.idx=idx;
+        cell.onclick=()=>memoryClick(idx);
+        container.appendChild(cell);
+    });
+    document.getElementById('memoryMoves').textContent=memoryMoves;
+    document.getElementById('memoryPairs').textContent=memoryCards.filter(c=>c.matched).length/2+'/'+memoryPairs;
+}
+function memoryClick(idx) {
+    if (memoryLocked) return;
+    const card=memoryCards[idx];
+    if (card.matched||card.flipped) return;
+    card.flipped=true; memoryFlipped.push(idx); renderMemory();
+    if (memoryFlipped.length===2) {
+        memoryLocked=true; memoryMoves++;
+        const idx1=memoryFlipped[0], idx2=memoryFlipped[1];
+        const c1=memoryCards[idx1], c2=memoryCards[idx2];
+        if (c1.icon===c2.icon && idx1!==idx2) {
+            c1.matched=true; c2.matched=true; memoryFlipped=[]; memoryLocked=false; renderMemory();
+            if (memoryCards.every(c=>c.matched)) { showMessage('🎉 记忆翻牌通关！','你赢了！'); }
+        } else {
+            setTimeout(()=>{ c1.flipped=false; c2.flipped=false; memoryFlipped=[]; memoryLocked=false; renderMemory(); },600);
+        }
+        document.getElementById('memoryMoves').textContent=memoryMoves;
+    }
+}
+
+// ============================================================
+//  游戏启动器
+// ============================================================
+function startGame(type) {
+    document.getElementById('gameSelectGrid').style.display = 'none';
+    document.getElementById('gamePlayArea').style.display = 'block';
+    document.getElementById('gamePlayArea').dataset.gameType = type;
+    const content = document.getElementById('gameContent');
+    gameRewardClaimed = false;
+    if (tetrisInterval) clearInterval(tetrisInterval);
+    if (snakeInterval) clearInterval(snakeInterval);
+    tetrisInterval = null;
+    snakeInterval = null;
+
+    if (type === '2048') {
+        content.innerHTML = `<div class="game2048-container"><div style="color:#7a4a2a;font-size:13px;text-align:center;margin-bottom:6px;">得分: <span id="gameScore">0</span></div><div class="grid" id="game2048Grid"></div><p style="text-align:center;color:#7a5a40;font-size:10px;margin-top:4px;">方向键移动 · 合并数字</p><div class="flex-center"><button class="btn-primary" onclick="init2048()">🔄 新游戏</button></div></div>`;
+        init2048();
+    } else if (type === 'minesweeper') {
+        content.innerHTML = `<div class="minesweeper-container"><div style="color:#7a5a40;font-size:11px;text-align:center;">💣 扫雷 (右键标记)</div><div class="grid" id="mineGridContainer" style="grid-template-columns:repeat(9,34px);"></div><div class="flex-center"><button class="btn-primary" onclick="initMinesweeper()">🔄 新游戏</button></div></div>`;
+        initMinesweeper();
+    } else if (type === 'snake') {
+        content.innerHTML = `<div class="snake-container"><div style="color:#7a5a40;font-size:11px;text-align:center;">🐍 贪吃蛇 <span style="font-size:10px;color:#a08060;">得分: <span id="snakeScore">0</span></span></div><div class="grid" id="snakeGridContainer" style="grid-template-columns:repeat(20,24px);"></div><div class="flex-center"><button class="btn-primary" onclick="initSnake()">🔄 新游戏</button></div></div>`;
+        initSnake();
+    } else if (type === 'tetris') {
+        content.innerHTML = `<div class="tetris-container"><div class="info"><span>🧱 俄罗斯方块</span><span>得分: <span id="tetrisScore">0</span></span></div><div class="grid" id="tetrisGrid" style="grid-template-columns:repeat(10,26px);"></div><div style="text-align:center;color:#7a5a40;font-size:8px;margin-top:2px;">←→移动 ↑旋转 ↓加速 空格直落</div><div class="flex-center"><button class="btn-primary" onclick="initTetris()">🔄 新游戏</button></div></div>`;
+        initTetris();
+    } else if (type === 'memory') {
+        content.innerHTML = `<div class="memory-container"><div class="info"><span>🃏 记忆翻牌</span><span>步数: <span id="memoryMoves">0</span></span><span>配对: <span id="memoryPairs">0/8</span></span></div><div class="grid" id="memoryGrid"></div><div class="flex-center"><button class="btn-primary" onclick="initMemory()">🔄 新游戏</button></div></div>`;
+        initMemory();
+    }
+}
+
+function closeGame() {
+    document.getElementById('gameSelectGrid').style.display = 'flex';
+    document.getElementById('gamePlayArea').style.display = 'none';
+    document.getElementById('gamePlayArea').dataset.gameType = '';
+    if (tetrisInterval) clearInterval(tetrisInterval);
+    if (snakeInterval) clearInterval(snakeInterval);
+    tetrisInterval = null;
+    snakeInterval = null;
+}
+
+function claimGameReward() {
+    const gameType = document.getElementById('gamePlayArea').dataset.gameType;
+    let score = 0;
+    if (gameType === '2048') score = g2048.score || 0;
+    else if (gameType === 'minesweeper') score = 30;
+    else if (gameType === 'snake') score = snakeScore || 0;
+    else if (gameType === 'tetris') score = tetrisScore || 0;
+    else if (gameType === 'memory') {
+        const matched = memoryCards.filter(c=>c.matched).length;
+        score = matched > 0 ? 20 + matched * 2 : 0;
+    }
+    if (score === 0 && gameType !== 'minesweeper') { showMessage('🎮 还没玩呢','先玩一局游戏吧！'); return; }
+    if (gameRewardClaimed) { showMessage('⏳ 已领取','奖励已领取。'); return; }
+    const bonus = Math.min(30, Math.floor(score/4)+2);
+    const happyBonus = Math.min(10, Math.floor(score/8)+1);
+    state.points += bonus; state.happy = Math.min(state.maxHappy, state.happy + happyBonus);
+    updateStatusUI(); gameRewardClaimed = true;
+    showMessage('🎁 奖励领取！', `获得 ${bonus} 积分，快乐 +${happyBonus}！`);
+}
+
+function openTV() {
+    if (currentFloor !== FLOORS.HOUSE) { showMessage('📺 需要回家','电视机在客厅！'); return; }
+    document.getElementById('tvModal').classList.add('active');
+    document.getElementById('gameSelectGrid').style.display = 'flex';
+    document.getElementById('gamePlayArea').style.display = 'none';
+    if (tetrisInterval) clearInterval(tetrisInterval);
+    if (snakeInterval) clearInterval(snakeInterval);
+    tetrisInterval = null;
+    snakeInterval = null;
+}
+
+// ============================================================
+//  模态框
+// ============================================================
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+    if (id === 'sleepModal' && sleepInterval) { clearInterval(sleepInterval); sleepInterval=null; sleepActive=false; }
+    if (id === 'restModal' && restInterval) { clearInterval(restInterval); restInterval=null; restActive=false; }
+    if (id === 'batheModal' && batheInterval) { clearInterval(batheInterval); batheInterval=null; batheActive=false; }
+    if (id === 'washModal' && washInterval) { clearInterval(washInterval); washInterval=null; washActive=false; }
+    if (id === 'studyModal' && studyInterval) { clearInterval(studyInterval); studyInterval=null; studyActive=false; }
+    if (id === 'tvModal') { closeGame(); if (tetrisInterval) clearInterval(tetrisInterval); if (snakeInterval) clearInterval(snakeInterval); }
+}
+
+function showMessage(title, body) {
+    document.getElementById('msgTitle').textContent = title;
+    document.getElementById('msgBody').textContent = body;
+    document.getElementById('msgModal').classList.add('active');
+}
+
+function confirmActiveModal() {
+    const modals = document.querySelectorAll('.modal-overlay.active');
+    if (modals.length === 0) return false;
+    const modal = modals[modals.length - 1];
+    const buttons = modal.querySelectorAll('button.btn-primary');
+    let confirmBtn = null;
+    buttons.forEach(b => {
+        if (/知道了|确定|确认|领取/.test(b.textContent)) confirmBtn = b;
+    });
+    if (!confirmBtn) {
+        buttons.forEach(b => {
+            if (!confirmBtn && !b.classList.contains('btn-red')) confirmBtn = b;
+        });
+    }
+    if (confirmBtn) { confirmBtn.click(); return true; }
+    return false;
+}
+
+// ============================================================
+//  主循环
+// ============================================================
+function gameLoop() {
+    movePlayer();
+    updateState();
+    checkInteraction();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// ---------- 初始化 ----------
+function init() {
+    player.x = 310; player.y = 360;
+    shopPlayer.x = 420; shopPlayer.y = 480;
+    gardenPlayer.x = 420; gardenPlayer.y = 480;
+    state.hunger = 70; state.energy = 80; state.happy = 70; state.cleanliness = 80; state.points = 30;
+    currentFloor = FLOORS.HOUSE;
+    floorIndicator.textContent = '🏠 中层小屋';
+    updateStatusUI();
+    preloadFurnitureImages();
+    captureDefaultLayout();
+    loadLayout();
+    gameLoop();
+    console.log('🏡 三层像素小镇 · 房间分色版 · 种子价格统一为5积分');
+}
+
+// ---------- 事件绑定 ----------
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(el => {
+            if (el.id === 'sleepModal' && sleepInterval) cancelSleep();
+            else if (el.id === 'restModal' && restInterval) cancelRest();
+            else if (el.id === 'batheModal' && batheInterval) cancelBathe();
+            else if (el.id === 'washModal' && washInterval) cancelWash();
+            else if (el.id === 'studyModal' && studyInterval) cancelStudy();
+            else if (el.id === 'tvModal') { closeGame(); el.classList.remove('active'); if (tetrisInterval) clearInterval(tetrisInterval); if (snakeInterval) clearInterval(snakeInterval); }
+            else el.classList.remove('active');
+        });
+    }
+});
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', (e) => {
+        if (e.target === el) {
+            if (el.id === 'sleepModal' && sleepInterval) cancelSleep();
+            else if (el.id === 'restModal' && restInterval) cancelRest();
+            else if (el.id === 'batheModal' && batheInterval) cancelBathe();
+            else if (el.id === 'washModal' && washInterval) cancelWash();
+            else if (el.id === 'studyModal' && studyInterval) cancelStudy();
+            else if (el.id === 'tvModal') { closeGame(); el.classList.remove('active'); if (tetrisInterval) clearInterval(tetrisInterval); if (snakeInterval) clearInterval(snakeInterval); }
+            else el.classList.remove('active');
+        }
+    });
+});
+
+canvas.addEventListener('click', () => canvas.focus());
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+
+function resizeCanvas() { /* CSS自适应 */ }
+window.addEventListener('resize', resizeCanvas);
+
+// ============================================================
+//  家具布置（编辑）模式
+// ============================================================
+let editMode = false;
+let selectedFurniture = null;
+let draggingFurniture = null;
+let dragOffsetX = 0, dragOffsetY = 0;
+const defaultLayout = {};
+const LAYOUT_KEY = 'pixelHome_furnitureLayout_v1';
+
+function eachFurniture(cb) {
+    [houseFurniture, shopFurniture, gardenFurniture].forEach(list => list.forEach(cb));
+}
+
+function captureDefaultLayout() {
+    eachFurniture(f => { defaultLayout[f.id] = { x:f.x, y:f.y, rotation:f.rotation||0, flip:f.flip||false }; });
+}
+
+function saveLayout() {
+    const data = {};
+    eachFurniture(f => { data[f.id] = { x:f.x, y:f.y, rotation:f.rotation||0, flip:f.flip||false }; });
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function exportLayout() {
+    const data = {};
+    eachFurniture(f => { data[f.id] = { x:f.x, y:f.y, rotation:f.rotation||0, flip:f.flip||false }; });
+    const json = JSON.stringify(data);
+    const box = document.getElementById('exportLayoutBox');
+    box.value = json;
+    box.classList.add('show');
+    box.select();
+    try {
+        navigator.clipboard.writeText(json);
+        showMessage('📋 布局已导出', '布局数据已复制到剪贴板！把它粘贴发给我，我就能帮你写成代码默认布局。');
+    } catch(e) {
+        document.execCommand && document.execCommand('copy');
+        showMessage('📋 布局已导出', '布局数据已显示在下方文本框，请手动复制全部内容发给我。');
+    }
+}
+
+function loadLayout() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(LAYOUT_KEY)); } catch(e) { return; }
+    if (!data) return;
+    eachFurniture(f => {
+        const d = data[f.id];
+        if (d) { f.x = d.x; f.y = d.y; f.rotation = d.rotation || 0; f.flip = d.flip || false; }
+    });
+}
+
+function resetLayout() {
+    eachFurniture(f => {
+        const d = defaultLayout[f.id];
+        if (d) { f.x = d.x; f.y = d.y; f.rotation = d.rotation; f.flip = d.flip; }
+    });
+    selectedFurniture = null;
+    updateEditSelectedName();
+    saveLayout();
+}
+
+function toggleEditMode() {
+    editMode = !editMode;
+    const btn = document.getElementById('editToggleBtn');
+    const panel = document.getElementById('editPanel');
+    if (editMode) {
+        btn.classList.add('active');
+        btn.textContent = '🛠️ 退出布置';
+        panel.classList.add('active');
+        canvas.style.cursor = 'move';
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = '🛠️ 布置家具';
+        panel.classList.remove('active');
+        canvas.style.cursor = 'default';
+        selectedFurniture = null;
+        draggingFurniture = null;
+        saveLayout();
+    }
+    updateEditSelectedName();
+}
+
+function updateEditSelectedName() {
+    const el = document.getElementById('editSelectedName');
+    if (!el) return;
+    el.textContent = selectedFurniture
+        ? (selectedFurniture.label || '🪑') + ' ' + (selectedFurniture.id || '家具')
+        : '未选中家具';
+}
+
+function canvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+    };
+}
+
+function furnitureAtPoint(px, py) {
+    const list = getCurrentFurniture();
+    for (let i = list.length - 1; i >= 0; i--) {
+        const f = list[i];
+        if (px >= f.x && px <= f.x + f.w && py >= f.y && py <= f.y + f.h) return f;
+    }
+    return null;
+}
+
+function rotateSelected(deg) {
+    if (!selectedFurniture) return;
+    selectedFurniture.rotation = ((((selectedFurniture.rotation || 0) + deg) % 360) + 360) % 360;
+    saveLayout();
+}
+
+function flipSelected() {
+    if (!selectedFurniture) return;
+    selectedFurniture.flip = !selectedFurniture.flip;
+    saveLayout();
+}
+
+canvas.addEventListener('mousedown', (e) => {
+    if (!editMode) return;
+    const { x, y } = canvasCoords(e);
+    const f = furnitureAtPoint(x, y);
+    selectedFurniture = f;
+    updateEditSelectedName();
+    if (f) {
+        draggingFurniture = f;
+        dragOffsetX = x - f.x;
+        dragOffsetY = y - f.y;
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!editMode || !draggingFurniture) return;
+    const { x, y } = canvasCoords(e);
+    let nx = x - dragOffsetX, ny = y - dragOffsetY;
+    nx = Math.max(12, Math.min(W - draggingFurniture.w - 12, nx));
+    ny = Math.max(12, Math.min(H - draggingFurniture.h - 12, ny));
+    draggingFurniture.x = Math.round(nx);
+    draggingFurniture.y = Math.round(ny);
+});
+
+window.addEventListener('mouseup', () => {
+    if (draggingFurniture) saveLayout();
+    draggingFurniture = null;
+});
+
+document.addEventListener('keydown', (e) => {
+    if (!editMode || !selectedFurniture) return;
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rotateSelected(90); }
+    else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); flipSelected(); }
+});
+
+init();
+</script>
+</body>
+</html>
