@@ -404,6 +404,26 @@
         body.touch-mode .touch-controls { display:block; }
         body.touch-mode { overflow-y:auto; align-items:flex-start; padding-top:8px; }
         body.touch-mode .interact-hint { bottom:185px; }
+        /* 状态栏：手机端更紧凑、贴边、半透明，避免挡住画面 */
+        body.touch-mode .status-bar {
+            top:4px; left:4px;
+            padding:5px 7px;
+            min-width:0;
+            border-width:2px;
+            border-radius:10px;
+            background:rgba(250,242,232,0.78);
+            transform:scale(0.82);
+            transform-origin:top left;
+            box-shadow:0 2px 8px rgba(120,80,50,0.15);
+        }
+        body.touch-mode .status-bar .title { display:none; }
+        body.touch-mode .status-item { padding:1px 0; gap:4px; }
+        body.touch-mode .status-item .label { display:none; }
+        body.touch-mode .status-item .bar-bg { width:46px; height:7px; }
+        body.touch-mode .status-item .value { font-size:9px; min-width:18px; }
+        body.touch-mode .status-item .icon { font-size:13px; margin-right:1px; }
+        body.touch-mode .floor-indicator { top:4px; right:4px; font-size:9px; padding:5px 8px; border-width:2px; }
+        body.touch-mode .edit-toggle-btn { top:40px; right:4px; font-size:10px; padding:5px 8px; border-width:2px; }
         .touch-dpad {
             position:fixed; left:14px; bottom:18px; z-index:40;
             display:grid;
